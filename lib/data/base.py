@@ -2,12 +2,12 @@
 import pymongo
 from WindPy import w
 import pandas as pd
-from jqdatasdk import *
 from datetime import datetime, date, timedelta
 import pprint
 import sys
 from constant import *
 import re
+import eikon as ek
 
 
 class DataSaving(object):
@@ -15,11 +15,12 @@ class DataSaving(object):
 
         if not w.isconnected():
             w.start()
-        auth('13585598782', '598782')
         self.conn = pymongo.MongoClient(host=host, port=port)
-
         self.cmd_exchange = self.getCmdExchange()
-        print self.cmd_exchange
+
+    def rtConn(self):
+        TR_ID = '70650e2c881040408f6f95dea2bf3fa13e9f66fe'
+        ek.set_app_key(TR_ID)
 
     def getCmdExchange(self):
         ptn1 = re.compile('[A-Z]+(?=\.)')
@@ -42,155 +43,154 @@ class DataSaving(object):
         else:
             raise Exception(u'请先选择数据库')
 
-    def getFuturesInfoFromJQ(self):
-        self.useMongoDB('FuturesDaily')
-        self.useMongoCollections('SecurityInfoFromJQ')
-        sec_info = get_all_securities(types=['futures'])
-        secinfo_dict = sec_info.to_dict('index')
-
-        total = len(secinfo_dict)
-        count = 1
-
-
-        for s in secinfo_dict:
-
-            process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
-
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
-
-
-            d = secinfo_dict[s]
-            d['jq_code'] = s
-            if not self.collection.find_one({'jq_code': s}):
-                self.collection.insert_one(d)
-
-            count += 1
-
-        sys.stdout.write('\n')
-        sys.stdout.flush()
-
-    def getFuturesPrice(self, security, security_class, update=1):
-        self.useMongoDB('FuturesDaily')
-        self.useMongoCollections('SecurityInfoFromJQ')
-        queryArgs = {'jq_code': security}
-        projectionFields = ['jq_code', 'start_date', 'end_date']
-        searchRes = self.collection.find_one(queryArgs, projectionFields)
-
-        self.useMongoCollections('%s_Daily' % security_class)
-        if update == 0:
-
-            if datetime.now().hour < 16:
-                end_date = min(datetime.today() - timedelta(1), searchRes['end_date'])
-            else:
-                end_date = min(datetime.today(), searchRes['end_date'])
-            df_price = get_price(searchRes['jq_code'], start_date=searchRes['start_date'], end_date=end_date)
-
-            df_sett = get_extras(info='futures_sett_price', security_list=searchRes['jq_code'],
-                                 start_date=searchRes['start_date'], end_date=end_date)
-
-
-            df_sett.rename(columns={searchRes['jq_code']: 'settle'}, inplace=True)
-            df_oi = get_extras(info='futures_positions', security_list=searchRes['jq_code'],
-                               start_date=searchRes['start_date'], end_date=end_date)
-            df_oi.rename(columns={searchRes['jq_code']: 'openint'}, inplace=True)
-
-            df = df_price.join(df_sett, how='outer')
-            df = df.join(df_oi, how='outer')
-            df_dict = df.to_dict('index')
-
-            total = len(df_dict)
-
-            count = 1.
-            print u'导入合约%s' % searchRes['jq_code']
-
-            for d in df_dict:
-                process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
-                sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-                sys.stdout.flush()
-
-                dn = df_dict[d]
-                dn['jq_code'] = searchRes['jq_code']
-                dn['date'] = d
-
-                if not self.collection.find_one({'date': d, 'jq_code': searchRes['jq_code']}):
-                    self.collection.insert_one(dn)
-
-                count += 1
-
-            sys.stdout.write('\n')
-            sys.stdout.flush()
-
-        if update == 1:
-            if searchRes['end_date'] >= datetime.today():
-                searchRes1 = self.collection.find({'jq_code': searchRes['jq_code']}, ['date', 'jq_code']). \
-                    sort('date', pymongo.DESCENDING).limit(1)
-
-                for s1 in searchRes1:
-
-                    start_date = s1['date'] + timedelta(1)
-
-                    if datetime.now().hour < 16:
-                        end_date = datetime.today() - timedelta(1)
-                    else:
-                        end_date = datetime.today()
-
-                    if start_date > end_date:
-                        continue
-                    else:
-                        df_price = get_price(searchRes['jq_code'], start_date=start_date, end_date=end_date)
-                        df_sett = get_extras(info='futures_sett_price', security_list=searchRes['jq_code'],
-                                             start_date=start_date, end_date=end_date)
-                        df_sett.rename(columns={searchRes['jq_code']: 'settle'}, inplace=True)
-                        df_oi = get_extras(info='futures_positions', security_list=searchRes['jq_code'],
-                                           start_date=start_date,
-                                           end_date=end_date)
-                        df_oi.rename(columns={searchRes['jq_code']: 'openint'}, inplace=True)
-
-                        df = df_price.join(df_sett, how='outer')
-                        df = df.join(df_oi, how='outer')
-                        df_dict = df.to_dict('index')
-
-                        total = len(df_dict)
-
-                        count = 1.
-                        print u'更新合约%s' % searchRes['jq_code']
-
-                        for d in df_dict:
-                            process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
-                            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-                            sys.stdout.flush()
-
-                            dn = df_dict[d]
-                            dn['jq_code'] = searchRes['jq_code']
-                            dn['date'] = d
-
-                            if not self.collection.find_one({'date': d, 'jq_code': searchRes['jq_code']}):
-                                self.collection.insert_one(dn)
-
-                            count += 1
-
-                        sys.stdout.write('\n')
-                        sys.stdout.flush()
-
-    def getFuturesPriceAuto(self, security):
-
-        self.useMongoDB('FuturesDaily')
-        self.useMongoCollections('SecurityInfoFromJQ')
-        queryArgs = {'jq_code': {'$regex': '\A%s(?=\d+)' % security}}
-        projectionFields = ['jq_code', 'start_date', 'end_date']
-        searchRes = self.collection.find(queryArgs, projectionFields).sort('jq_code', pymongo.DESCENDING)
-
-        self.useMongoCollections('%s_Daily' % security)
-
-
-        for s in searchRes:
-
-            if self.collection.find_one({'jq_code': s['jq_code']}):
-                self.getFuturesPrice(security=s['jq_code'], security_class=security, update=1)
-            else:
-                self.getFuturesPrice(security=s['jq_code'], security_class=security, update=0)
-
+    # def getFuturesInfoFromJQ(self):
+    #     self.useMongoDB('FuturesDaily')
+    #     self.useMongoCollections('SecurityInfoFromJQ')
+    #     sec_info = get_all_securities(types=['futures'])
+    #     secinfo_dict = sec_info.to_dict('index')
+    #
+    #     total = len(secinfo_dict)
+    #     count = 1
+    #
+    #
+    #     for s in secinfo_dict:
+    #
+    #         process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
+    #
+    #         sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+    #         sys.stdout.flush()
+    #
+    #
+    #         d = secinfo_dict[s]
+    #         d['jq_code'] = s
+    #         if not self.collection.find_one({'jq_code': s}):
+    #             self.collection.insert_one(d)
+    #
+    #         count += 1
+    #
+    #     sys.stdout.write('\n')
+    #     sys.stdout.flush()
+    #
+    # def getFuturesPrice(self, security, security_class, update=1):
+    #     self.useMongoDB('FuturesDaily')
+    #     self.useMongoCollections('SecurityInfoFromJQ')
+    #     queryArgs = {'jq_code': security}
+    #     projectionFields = ['jq_code', 'start_date', 'end_date']
+    #     searchRes = self.collection.find_one(queryArgs, projectionFields)
+    #
+    #     self.useMongoCollections('%s_Daily' % security_class)
+    #     if update == 0:
+    #
+    #         if datetime.now().hour < 16:
+    #             end_date = min(datetime.today() - timedelta(1), searchRes['end_date'])
+    #         else:
+    #             end_date = min(datetime.today(), searchRes['end_date'])
+    #         df_price = get_price(searchRes['jq_code'], start_date=searchRes['start_date'], end_date=end_date)
+    #
+    #         df_sett = get_extras(info='futures_sett_price', security_list=searchRes['jq_code'],
+    #                              start_date=searchRes['start_date'], end_date=end_date)
+    #
+    #
+    #         df_sett.rename(columns={searchRes['jq_code']: 'settle'}, inplace=True)
+    #         df_oi = get_extras(info='futures_positions', security_list=searchRes['jq_code'],
+    #                            start_date=searchRes['start_date'], end_date=end_date)
+    #         df_oi.rename(columns={searchRes['jq_code']: 'openint'}, inplace=True)
+    #
+    #         df = df_price.join(df_sett, how='outer')
+    #         df = df.join(df_oi, how='outer')
+    #         df_dict = df.to_dict('index')
+    #
+    #         total = len(df_dict)
+    #
+    #         count = 1.
+    #         print u'导入合约%s' % searchRes['jq_code']
+    #
+    #         for d in df_dict:
+    #             process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
+    #             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+    #             sys.stdout.flush()
+    #
+    #             dn = df_dict[d]
+    #             dn['jq_code'] = searchRes['jq_code']
+    #             dn['date'] = d
+    #
+    #             if not self.collection.find_one({'date': d, 'jq_code': searchRes['jq_code']}):
+    #                 self.collection.insert_one(dn)
+    #
+    #             count += 1
+    #
+    #         sys.stdout.write('\n')
+    #         sys.stdout.flush()
+    #
+    #     if update == 1:
+    #         if searchRes['end_date'] >= datetime.today():
+    #             searchRes1 = self.collection.find({'jq_code': searchRes['jq_code']}, ['date', 'jq_code']). \
+    #                 sort('date', pymongo.DESCENDING).limit(1)
+    #
+    #             for s1 in searchRes1:
+    #
+    #                 start_date = s1['date'] + timedelta(1)
+    #
+    #                 if datetime.now().hour < 16:
+    #                     end_date = datetime.today() - timedelta(1)
+    #                 else:
+    #                     end_date = datetime.today()
+    #
+    #                 if start_date > end_date:
+    #                     continue
+    #                 else:
+    #                     df_price = get_price(searchRes['jq_code'], start_date=start_date, end_date=end_date)
+    #                     df_sett = get_extras(info='futures_sett_price', security_list=searchRes['jq_code'],
+    #                                          start_date=start_date, end_date=end_date)
+    #                     df_sett.rename(columns={searchRes['jq_code']: 'settle'}, inplace=True)
+    #                     df_oi = get_extras(info='futures_positions', security_list=searchRes['jq_code'],
+    #                                        start_date=start_date,
+    #                                        end_date=end_date)
+    #                     df_oi.rename(columns={searchRes['jq_code']: 'openint'}, inplace=True)
+    #
+    #                     df = df_price.join(df_sett, how='outer')
+    #                     df = df.join(df_oi, how='outer')
+    #                     df_dict = df.to_dict('index')
+    #
+    #                     total = len(df_dict)
+    #
+    #                     count = 1.
+    #                     print u'更新合约%s' % searchRes['jq_code']
+    #
+    #                     for d in df_dict:
+    #                         process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
+    #                         sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+    #                         sys.stdout.flush()
+    #
+    #                         dn = df_dict[d]
+    #                         dn['jq_code'] = searchRes['jq_code']
+    #                         dn['date'] = d
+    #
+    #                         if not self.collection.find_one({'date': d, 'jq_code': searchRes['jq_code']}):
+    #                             self.collection.insert_one(dn)
+    #
+    #                         count += 1
+    #
+    #                     sys.stdout.write('\n')
+    #                     sys.stdout.flush()
+    #
+    # def getFuturesPriceAuto(self, security):
+    #
+    #     self.useMongoDB('FuturesDaily')
+    #     self.useMongoCollections('SecurityInfoFromJQ')
+    #     queryArgs = {'jq_code': {'$regex': '\A%s(?=\d+)' % security}}
+    #     projectionFields = ['jq_code', 'start_date', 'end_date']
+    #     searchRes = self.collection.find(queryArgs, projectionFields).sort('jq_code', pymongo.DESCENDING)
+    #
+    #     self.useMongoCollections('%s_Daily' % security)
+    #
+    #
+    #     for s in searchRes:
+    #
+    #         if self.collection.find_one({'jq_code': s['jq_code']}):
+    #             self.getFuturesPrice(security=s['jq_code'], security_class=security, update=1)
+    #         else:
+    #             self.getFuturesPrice(security=s['jq_code'], security_class=security, update=0)
 
     def getFuturesInfoFromWind(self, cmd):
 
@@ -391,6 +391,102 @@ class DataSaving(object):
             else:
                 self.getFuturePriceFromWind(contract=d, cmd=cmd, update=0, alldaytrade=alldaytrade)
 
+    def getFXFromWind(self, edb_name):
+        self.useMongoDB('EDBWind')
+        self.useMongoCollections('FX')
+        edb_code = edb_dict[edb_name]
+        if self.collection.find_one({'wind_code': edb_code}):
+            queryArgs = {'wind_code': edb_code}
+            projectionField = ['wind_code', 'date']
+            searchRes = self.collection.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+            start_date = list(searchRes)[0]['date'] + timedelta(1)
+            end_date = datetime.today()
+        else:
+            start_date = '19900101'
+            end_date = datetime.today()
+
+        if start_date > end_date:
+            return
+
+        res = w.edb(edb_code, start_date, end_date, 'Fill=Previous')
+
+        if res.ErrorCode != 0:
+            print res
+            raise Exception(u'WIND提取数据出现了错误')
+        else:
+            dict_res = dict(zip(res.Fields, res.Data))
+            df = pd.DataFrame.from_dict(dict_res)
+            df.index = res.Times
+            df['wind_code'] = edb_code
+            df['edb_name'] = edb_name
+
+            fx_dict = df.to_dict(orient='index')
+
+            total = len(fx_dict)
+            count = 1
+
+            print '抓取%s数据' % edb_name
+            for di in fx_dict:
+                process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+                sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+                sys.stdout.flush()
+
+                if self.collection.find_one({'wind_code': edb_code, 'date': datetime.strptime(str(di), '%Y-%m-%d')}):
+                    continue
+
+                dtemp = fx_dict[di].copy()
+                dtemp['date'] = datetime.strptime(str(di), '%Y-%m-%d')
+                dtemp['update_time'] = datetime.now()
+                self.collection.insert_one(dtemp)
+                count += 1
+
+            sys.stdout.write('\n')
+            sys.stdout.flush()
+
+    def getFuturePriceFromRT(self, cmd):
+        if not ek.get_app_key():
+            self.rtConn()
+        self.useMongoDB('FuturesDailyRT')
+        self.useMongoCollections('Oil')
+
+        tr_code = cmd + 'c1'
+
+        if self.collection.find_one({'tr_code': tr_code}):
+            queryArgs = {'tr_code': tr_code}
+            projectionField = ['tr_code', 'date']
+            searchRes = self.collection.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+            start_date = list(searchRes)[0]['date'] + timedelta(1)
+            end_date = datetime.today() - timedelta(1)
+
+        else:
+            start_date = '2000-01-01'
+            end_date = datetime.today() - timedelta(1)
+
+        if start_date > end_date:
+            return
+
+        res = ek.get_timeseries(tr_code, start_date=start_date, end_date=end_date)
+        res['tr_code'] = tr_code
+        res_dict = res.to_dict(orient='index')
+        total = len(res_dict)
+        count = 1
+        print u'抓取路透%s合约的数据' % tr_code
+        for di in res_dict:
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            dtemp = res_dict[di].copy()
+            dtemp['date'] = di
+            dtemp['update_time'] = datetime.now()
+            self.collection.insert_one(dtemp)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+
+
     def test(self, cmd):
         self.useMongoDB('FuturesDailyWind')
         self.useMongoCollections('FuturesInfo')
@@ -415,4 +511,6 @@ if __name__ == '__main__':
 
     # DataSaving().getMainFuturePriceAutoFromWind(cmd='B.IPE', alldaytrade=1)
     # DataSaving().getAllFuturesInfoFromWind()
-    DataSaving().test('J.DCE')
+    # DataSaving().test('J.DCE')
+    # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
+    DataSaving().getFuturePriceFromRT('LCO')
