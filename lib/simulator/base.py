@@ -5,6 +5,7 @@ import pandas as pd
 import pymongo
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import pprint
 
 
 class TradeRecord(object):
@@ -21,7 +22,6 @@ class TradeRecord(object):
         self.multiplier = None
         self.count = None
         self.pnl = None
-
 
     def calcPnL(self):
         self.pnl = (self.close - self.open) * self.volume * self.multiplier * self.direction
@@ -57,6 +57,11 @@ class TradeRecord(object):
         self.count = val
 
 
+# class TradeTS(object):
+#     def __init__(self):
+#         self.dt = None
+#         self.
+
 class BacktestSys(object):
 
     def __init__(self):
@@ -87,10 +92,12 @@ class BacktestSys(object):
     def strategy(self):
         raise NotImplementedError
 
-    def calc_pnl(self, db, collection, contract, multiplier, wgts):
+    def calc_pnl(self, db, collection, contract, multiplier, wgts, tcost_type, tcost):
         """
         根据生成的权重计算盈亏情况，需要的数据，db是数据库，collection是数据表，contract是合约，multiplier是合约乘数。
         然后根据wgts权重向量计算。需要注意的问题是权重向量与时间向量的长度要相同。
+        tcost是交易成本，期货交易成本有两种，一种是根据成交金额的百分比，另一种是每手交易收取固定费用。tcost_type=1时，为不固定费
+        用，tcost是百分比。tcost_type=2时，为固定费用，tcost是每笔收取的费用。 tcost_type=0时，不计手续费
         """
 
         if self.bt_mode == 'NextOpen':
@@ -111,12 +118,53 @@ class BacktestSys(object):
                 # 当天增减仓
                 if weights[i] * weights[i-1] >= 0:
                     delta_wgt = weights[i] - weights[i-1]
+
+                    if tcost_type == 1:
+                        trade_cost = open_price[i] * abs(delta_wgt) * multiplier * tcost
+                    elif tcost_type == 2:
+                        trade_cost = abs(delta_wgt) * tcost
+                    elif tcost_type == 0:
+                        trade_cost = 0
+
+
                     pnl[i] = pnl[i-1] + (close_price[i] - open_price[i]) * delta_wgt * multiplier + \
-                             (close_price[i] - close_price[i-1]) * weights[i-1] * multiplier
+                             (close_price[i] - close_price[i-1]) * weights[i-1] * multiplier - trade_cost
                 # 当天改变持仓方向
                 elif weights[i] * weights[i-1] < 0:
+
+                    if tcost_type == 1:
+                        trade_cost = open_price[i] * (abs(weights[i]) + abs(weights[i-1])) * multiplier * tcost
+                    elif tcost_type == 2:
+                        trade_cost = (abs(weights[i]) + abs(weights[i-1])) * tcost
+                    elif tcost_type == 0:
+                        trade_cost = 0
+
                     pnl[i] = pnl[i-1] + (close_price[i] - open_price[i]) * weights[i] * multiplier + \
-                             (open_price[i] - close_price[i-1]) * weights[i-1] * multiplier
+                             (open_price[i] - close_price[i-1]) * weights[i-1] * multiplier - trade_cost
+
+        elif self.bt_mode == 'CLOSE':
+            weights = wgts.copy()
+            res = self.prepareData(db=db, collection=collection, contract=contract, field=['date', 'CLOSE'])
+            dt = res['date']
+            close_price = res['CLOSE']
+
+            if dt.shape != wgts.shape:
+                raise Exception('日期向量与权重向量的长度不一致')
+
+            pnl = np.zeros_like(wgts)
+
+            for i in range(1, len(weights)):
+
+                delta_wgt = weights[i] - weights[i-1]
+
+                if tcost_type == 1:
+                    trade_cost = close_price[i] * abs(delta_wgt) * multiplier * tcost
+                elif tcost_type == 2:
+                    trade_cost = abs(delta_wgt) * tcost
+                elif tcost_type == 0:
+                    trade_cost = 0
+
+                pnl[i] = pnl[i-1] + (close_price[i] - close_price[i-1]) * weights[i-1] * multiplier - trade_cost
 
         pnl_df = pd.DataFrame({'pnl': pnl}, index=dt)
         return pnl_df
@@ -198,6 +246,76 @@ class BacktestSys(object):
                     unclosed += tr_r.volume
                     unclosed_dir = tr_r.direction
 
+        elif self.bt_mode == 'CLOSE':
+            weights = wgts.copy()
+            res = self.prepareData(db=db, collection=collection, contract=contract, field=['date', 'CLOSE'])
+            dt = res['date']
+            close_price = res['CLOSE']
+
+            if dt.shape != wgts.shape:
+                raise Exception('日期向量与权重向量的长度不一致')
+
+            trade_record = []
+            unclosed = 0
+
+            for i in range(1, len(weights)):
+
+                if abs(weights[i]) > abs(weights[i-1]) and weights[i] * weights[i-1] >= 0:
+
+                    # 新开仓
+                    count += 1
+                    tr_r = TradeRecord()
+                    tr_r.setCounter(count)
+                    tr_r.setOpen(close_price[i])
+                    tr_r.setOpenDT(dt[i])
+                    tr_r.setVolume(abs(weights[i]) - abs(weights[i-1]))
+                    tr_r.setMultiplier(multiplier)
+                    tr_r.setContract(contract)
+                    tr_r.setDirection(np.sign(weights[i]))
+                    trade_record.append(tr_r)
+                    unclosed += tr_r.volume
+                    unclosed_dir = tr_r.direction
+
+                elif abs(weights[i]) < abs(weights[i-1]) and weights[i] * weights[i-1] >= 0:
+
+                    # 减仓或平仓
+                    j = 1
+                    while unclosed != 0 and - unclosed_dir == np.sign(weights[i] - weights[i-1]):
+                        trade_record[-j].setClose(close_price[i])
+                        trade_record[-j].setCloseDT(dt[i])
+                        trade_record[-j].calcPnL()
+                        unclosed -= trade_record[-j].volume
+                        if unclosed == 0:
+                            unclosed_dir = None
+                        j += 1
+
+                elif weights[i] * weights[i-1] < 0:
+
+                    # 平仓后反方向开仓
+                    j = 1
+                    while unclosed != 0 and unclosed_dir == np.sign(weights[i-1]):
+                        trade_record[-j].setClose(close_price[i])
+                        trade_record[-j].setCloseDT(dt[i])
+                        trade_record[-j].calcPnL()
+                        unclosed -= trade_record[-j].volume
+                        if unclosed == 0:
+                            unclosed_dir = None
+                        j += 1
+
+                    count += 1
+                    tr_r = TradeRecord()
+                    tr_r.setCounter(count)
+                    tr_r.setOpen(close_price[i])
+                    tr_r.setOpenDT(dt[i])
+                    tr_r.setVolume(abs(weights[i]))
+                    tr_r.setMultiplier(multiplier)
+                    tr_r.setContract(contract)
+                    tr_r.setDirection(np.sign(weights[i]))
+                    trade_record.append(tr_r)
+                    unclosed += tr_r.volume
+                    unclosed_dir = tr_r.direction
+
+
         trade_times = len(trade_record)
         buy_times = len([t for t in trade_record if t.direction == 1])
         sell_times = len([t for t in trade_record if t.direction == -1])
@@ -205,8 +323,14 @@ class BacktestSys(object):
         loss_times = len([t for t in trade_record if t.pnl < 0])
         buy_pnl = [t.pnl for t in trade_record if t.direction == 1]
         sell_pnl = [t.pnl for t in trade_record if t.direction == -1]
-        buy_avg_pnl = sum(buy_pnl) / buy_times
-        sell_avg_pnl = sum(sell_pnl) / sell_times
+        if buy_times == 0:
+            buy_avg_pnl = np.nan
+        else:
+            buy_avg_pnl = sum(buy_pnl) / buy_times
+        if sell_times == 0:
+            sell_avg_pnl = np.nan
+        else:
+            sell_avg_pnl = sum(sell_pnl) / sell_times
 
         print '+++++++++++++++%s合约交易统计++++++++++++++++++++' % contract
         print '交易次数: %d' % trade_times
@@ -218,6 +342,24 @@ class BacktestSys(object):
         print '做空平均盈亏: %f' % sell_avg_pnl
 
         return trade_record
+
+    def order_combination(self, trade_list):
+        """进行订单合并，根据交易的合约和时间进行，暂时先不需要"""
+        trade_dict = {}
+        for t in trade_list:
+            if t.contract not in trade_dict:
+                trade_dict[t.contract] = {}
+            if t.open_dt not in trade_dict[t.contract]:
+                trade_dict[t.contract][t.open_dt] = t.volume * t.direction
+            else:
+                trade_dict[t.contract][t.open_dt] = trade_dict[t.contract][t.open_dt] + t.volume * t.direction
+
+            if t.close_dt not in trade_dict[t.contract]:
+                trade_dict[t.contract][t.close_dt] = t.volume * t.direction * (-1)
+            else:
+                trade_dict[t.contract][t.close_dt] = trade_dict[t.contract][t.close_dt] - t.volume * t.direction
+
+        trade_comb = sorted(trade_dict.items(), key=lambda x: x[0][0], reverse=False)
 
 
 
