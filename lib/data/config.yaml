@@ -1,0 +1,144 @@
+######## CBNB DB Setting ###########
+# 该配置文件的用途是生成MongoDB数据库的结构
+
+db_type: MongoDB
+db_name: CBNB
+
+host: 192.168.2.171
+port: 27017
+user: yuanjie
+pwd: yuanjie
+
+
+collection:
+  - FuturesMD
+  - SpotMD
+  - EDB
+  - Information
+#  - ICEPrice
+
+FuturesMD:
+
+  -
+    source: WIND
+    frequency: daily
+    func: getFutureGroupPriceFromWind
+    alldaytrade: 0
+    cmd:
+      - L.DCE
+      - PP.DCE
+      - I.DCE
+      - J.DCE
+      - JM.DCE
+      - M.DCE
+      - C.DCE
+      - RB.SHF
+      - BU.SHF
+      - RU.SHF
+      - NI.SHF
+      - HC.SHF
+      - TA.CZC
+      - MA.CZC
+      - AP.CZC
+      - ZC.CZC
+      - SR.CZC
+      - RM.CZC
+      - SC.INE
+
+  -
+    source: WIND
+    frequency: daily
+    func: getFutureGroupPriceFromWind
+    alldaytrade: 1
+    cmd: [B.IPE]
+
+
+  -
+    source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    type: futures
+    cmd: [LCOc1, RBc1, HOc1]
+
+  - source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    type: swap
+    cmd: [FO380SGSWMc1, FO180SGSWMc1]
+
+SpotMD:
+  -
+    source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    unit: 美元/桶
+    type: spot
+    cmd: [WTM-, WTC-]
+
+
+EDB:
+  - {func: getEDBFromWind, source: WIND, cmd: M0067855, edb_name: "即期汇率:美元兑人民币", unit: null, frequency: Daily}
+
+
+
+#  M0067855:
+#    name: 即期汇率:美元兑人民币
+#    unit:
+
+Information:
+  -
+    func: getFuturesInfoFromWind
+    source: WIND
+    cmd:
+      - L.DCE
+      - PP.DCE
+      - I.DCE
+      - J.DCE
+      - JM.DCE
+      - M.DCE
+      - C.DCE
+      - RB.SHF
+      - BU.SHF
+      - RU.SHF
+      - NI.SHF
+      - HC.SHF
+      - TA.CZC
+      - MA.CZC
+      - AP.CZC
+      - ZC.CZC
+      - SR.CZC
+      - RM.CZC
+      - SC.INE
+      - B.IPE
+
+#ICEPrice:
+
+
+
+
+
+#WIND:
+#    FUTURES_MD:
+#        DB_TABLE: futures_md
+#        CATEGORY:
+#        -
+#            Exchange: DCE
+#            Alldaytrade: 0  # 该字段用来表示是否为全天交易
+#            Commodity: [L, PP, I, J, JM, M, C]
+#        -
+#            Exchange: SHF
+#            Alldaytrade: 0
+#            Commodity: [RB, BU, RU, NI, HC]
+#        -
+#            Exchange: CZC
+#            Alldaytrade: 0
+#            Commodity: [TA, MA, AP, ZC, SR, RM]
+#        -
+#            Exchange: INE
+#            Alldaytrade: 0
+#            Commodity: [SC]
+#        -
+#            Exchange: IPE
+#            Alldaytrade: 1
+#            Commodity: [B]
+

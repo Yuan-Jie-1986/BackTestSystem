@@ -1,36 +1,31 @@
-# coding=utf-8
+#coding=utf-8
 
-# import inspect
-# current_file = inspect.getabsfile(inspect.currentframe())
+import yaml
 from base import DataSaving
+import sys
 
-# Target = ['AP', 'RB', 'I', 'JM', 'J', 'L', 'MA', 'PP', 'RM', 'SC', 'TA']
 
-ins = DataSaving()
-# ins.getFuturesInfoFromJQ()
-# for t in Target:
-#     print t
-#     ins.getFuturesPriceAuto(security=t)
+f = open('config.yaml')
+res = yaml.load(f)
+host = res['host']
+port = res['port']
+usr = res['user']
+pwd = res['pwd']
+db = res['db_name']
 
-WIND_TARGET = ['TA.CZC', 'L.DCE', 'PP.DCE', 'MA.CZC', 'RB.SHF', 'I.DCE', 'J.DCE', 'JM.DCE', 'BU.SHF',
-               'RU.SHF', 'M.DCE', 'NI.SHF', 'C.DCE', 'SR.CZC', 'RM.CZC', 'HC.SHF', 'AP.CZC', 'ZC.CZC']
-for w in WIND_TARGET:
-    print w
-    ins.getFuturePriceAutoFromWind(cmd=w, alldaytrade=0)
-    ins.getMainFuturePriceAutoFromWind(cmd=w, alldaytrade=0)
+ds_obj = DataSaving(host=host, port=port, usr=usr, pwd=pwd, db=db)
 
-OIL_TARGET = ['B.IPE']
-for w in OIL_TARGET:
-    print w
-    ins.getFuturePriceAutoFromWind(cmd=w, alldaytrade=1)
-    ins.getMainFuturePriceAutoFromWind(cmd=w, alldaytrade=1)
+cols = res['collection']
+for col in cols:
 
-EDB_TARGET = ['即期汇率:美元兑人民币']
-for w in EDB_TARGET:
-    print w
-    ins.getFXFromWind(w)
+    col_content = res[col]
+    for cc in col_content:
+        func = cc.pop('func')
+        cmd_list = cc.pop('cmd')
+        if isinstance(cmd_list, list):
+            for c in cmd_list:
+                getattr(ds_obj, func)(col, c, **cc)
+        else:
+            getattr(ds_obj, func)(col, cmd_list, **cc)
 
-RT_TARGET = ['LCO']
-for w in RT_TARGET:
-    print w
-    ins.getFuturePriceFromRT(w)
+f.close()

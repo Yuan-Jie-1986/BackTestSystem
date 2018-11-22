@@ -11,16 +11,20 @@ import eikon as ek
 
 
 class DataSaving(object):
-    def __init__(self, host='localhost', port=27017):
+    def __init__(self, host, port, usr, pwd, db):
 
-        if not w.isconnected():
-            w.start()
         self.conn = pymongo.MongoClient(host=host, port=port)
-        self.cmd_exchange = self.getCmdExchange()
+        self.db = self.conn[db]
+        self.db.authenticate(usr, pwd)
+        # self.cmd_exchange = self.getCmdExchange()
 
     def rtConn(self):
         TR_ID = '70650e2c881040408f6f95dea2bf3fa13e9f66fe'
         ek.set_app_key(TR_ID)
+
+    def windConn(self):
+        if not w.isconnected():
+            w.start()
 
     def getCmdExchange(self):
         ptn1 = re.compile('[A-Z]+(?=\.)')
@@ -33,189 +37,29 @@ class DataSaving(object):
             # cmd_dict[cmd] = exchange
         return cmd_dict
 
-    def useMongoDB(self, db):
-
-        self.db = self.conn[db]
-
     def useMongoCollections(self, collection):
-        if self.db:
-            self.collection = self.db[collection]
-        else:
-            raise Exception(u'请先选择数据库')
+        self.collection = self.db[collection]
 
-    # def getFuturesInfoFromJQ(self):
-    #     self.useMongoDB('FuturesDaily')
-    #     self.useMongoCollections('SecurityInfoFromJQ')
-    #     sec_info = get_all_securities(types=['futures'])
-    #     secinfo_dict = sec_info.to_dict('index')
-    #
-    #     total = len(secinfo_dict)
-    #     count = 1
-    #
-    #
-    #     for s in secinfo_dict:
-    #
-    #         process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
-    #
-    #         sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-    #         sys.stdout.flush()
-    #
-    #
-    #         d = secinfo_dict[s]
-    #         d['jq_code'] = s
-    #         if not self.collection.find_one({'jq_code': s}):
-    #             self.collection.insert_one(d)
-    #
-    #         count += 1
-    #
-    #     sys.stdout.write('\n')
-    #     sys.stdout.flush()
-    #
-    # def getFuturesPrice(self, security, security_class, update=1):
-    #     self.useMongoDB('FuturesDaily')
-    #     self.useMongoCollections('SecurityInfoFromJQ')
-    #     queryArgs = {'jq_code': security}
-    #     projectionFields = ['jq_code', 'start_date', 'end_date']
-    #     searchRes = self.collection.find_one(queryArgs, projectionFields)
-    #
-    #     self.useMongoCollections('%s_Daily' % security_class)
-    #     if update == 0:
-    #
-    #         if datetime.now().hour < 16:
-    #             end_date = min(datetime.today() - timedelta(1), searchRes['end_date'])
-    #         else:
-    #             end_date = min(datetime.today(), searchRes['end_date'])
-    #         df_price = get_price(searchRes['jq_code'], start_date=searchRes['start_date'], end_date=end_date)
-    #
-    #         df_sett = get_extras(info='futures_sett_price', security_list=searchRes['jq_code'],
-    #                              start_date=searchRes['start_date'], end_date=end_date)
-    #
-    #
-    #         df_sett.rename(columns={searchRes['jq_code']: 'settle'}, inplace=True)
-    #         df_oi = get_extras(info='futures_positions', security_list=searchRes['jq_code'],
-    #                            start_date=searchRes['start_date'], end_date=end_date)
-    #         df_oi.rename(columns={searchRes['jq_code']: 'openint'}, inplace=True)
-    #
-    #         df = df_price.join(df_sett, how='outer')
-    #         df = df.join(df_oi, how='outer')
-    #         df_dict = df.to_dict('index')
-    #
-    #         total = len(df_dict)
-    #
-    #         count = 1.
-    #         print u'导入合约%s' % searchRes['jq_code']
-    #
-    #         for d in df_dict:
-    #             process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
-    #             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-    #             sys.stdout.flush()
-    #
-    #             dn = df_dict[d]
-    #             dn['jq_code'] = searchRes['jq_code']
-    #             dn['date'] = d
-    #
-    #             if not self.collection.find_one({'date': d, 'jq_code': searchRes['jq_code']}):
-    #                 self.collection.insert_one(dn)
-    #
-    #             count += 1
-    #
-    #         sys.stdout.write('\n')
-    #         sys.stdout.flush()
-    #
-    #     if update == 1:
-    #         if searchRes['end_date'] >= datetime.today():
-    #             searchRes1 = self.collection.find({'jq_code': searchRes['jq_code']}, ['date', 'jq_code']). \
-    #                 sort('date', pymongo.DESCENDING).limit(1)
-    #
-    #             for s1 in searchRes1:
-    #
-    #                 start_date = s1['date'] + timedelta(1)
-    #
-    #                 if datetime.now().hour < 16:
-    #                     end_date = datetime.today() - timedelta(1)
-    #                 else:
-    #                     end_date = datetime.today()
-    #
-    #                 if start_date > end_date:
-    #                     continue
-    #                 else:
-    #                     df_price = get_price(searchRes['jq_code'], start_date=start_date, end_date=end_date)
-    #                     df_sett = get_extras(info='futures_sett_price', security_list=searchRes['jq_code'],
-    #                                          start_date=start_date, end_date=end_date)
-    #                     df_sett.rename(columns={searchRes['jq_code']: 'settle'}, inplace=True)
-    #                     df_oi = get_extras(info='futures_positions', security_list=searchRes['jq_code'],
-    #                                        start_date=start_date,
-    #                                        end_date=end_date)
-    #                     df_oi.rename(columns={searchRes['jq_code']: 'openint'}, inplace=True)
-    #
-    #                     df = df_price.join(df_sett, how='outer')
-    #                     df = df.join(df_oi, how='outer')
-    #                     df_dict = df.to_dict('index')
-    #
-    #                     total = len(df_dict)
-    #
-    #                     count = 1.
-    #                     print u'更新合约%s' % searchRes['jq_code']
-    #
-    #                     for d in df_dict:
-    #                         process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
-    #                         sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-    #                         sys.stdout.flush()
-    #
-    #                         dn = df_dict[d]
-    #                         dn['jq_code'] = searchRes['jq_code']
-    #                         dn['date'] = d
-    #
-    #                         if not self.collection.find_one({'date': d, 'jq_code': searchRes['jq_code']}):
-    #                             self.collection.insert_one(dn)
-    #
-    #                         count += 1
-    #
-    #                     sys.stdout.write('\n')
-    #                     sys.stdout.flush()
-    #
-    # def getFuturesPriceAuto(self, security):
-    #
-    #     self.useMongoDB('FuturesDaily')
-    #     self.useMongoCollections('SecurityInfoFromJQ')
-    #     queryArgs = {'jq_code': {'$regex': '\A%s(?=\d+)' % security}}
-    #     projectionFields = ['jq_code', 'start_date', 'end_date']
-    #     searchRes = self.collection.find(queryArgs, projectionFields).sort('jq_code', pymongo.DESCENDING)
-    #
-    #     self.useMongoCollections('%s_Daily' % security)
-    #
-    #
-    #     for s in searchRes:
-    #
-    #         if self.collection.find_one({'jq_code': s['jq_code']}):
-    #             self.getFuturesPrice(security=s['jq_code'], security_class=security, update=1)
-    #         else:
-    #             self.getFuturesPrice(security=s['jq_code'], security_class=security, update=0)
-
-    def getFuturesInfoFromWind(self, cmd):
-
-        self.useMongoDB('FuturesDailyWind')
+    def getMDFromWind(self, db_name, table_name, contract):
+        self.useMongoDB(db_name)
         self.useMongoCollections('FuturesInfo')
+        queryArgs = {'wind_code': contract}
+
+    def getFuturesInfoFromWind(self, collection, cmd, **kwargs):
+        self.windConn()
+        coll = self.db[collection]
         wres = w.wset(tablename='futurecc', startdate='1990-01-01', enddate=datetime.today(), wind_code=cmd)
         wfields = wres.Fields
         res = dict(zip(wfields, wres.Data))
+        res.pop('change_limit')
+        res.pop('target_margin')
         df = pd.DataFrame.from_dict(res)
-        df.index = wres.Data[wfields.index('wind_code')]
         fu_info = df.to_dict(orient='index')
-
-        for i in fu_info:
-
-            if not self.collection.find_one({'wind_code': i}):
-                fu_info[i]['update_time'] = datetime.now()
-                self.collection.insert_one(fu_info[i])
-            else:
-                one_res = self.collection.find_one({'wind_code': i}, {'change_limit': 1, 'target_margin': 1})
-                change_limit = one_res['change_limit']
-                target_margin = one_res['target_margin']
-
-                if change_limit != fu_info[i]['change_limit'] or target_margin != fu_info[i]['target_margin']:
-                    fu_info[i]['update_time'] = datetime.now()
-                    self.collection.update_one({'wind_code': i}, {'$set': fu_info[i]})
+        for i, v in fu_info.items():
+            v.update(kwargs)
+            if not coll.find_one({'wind_code': v['wind_code']}):
+                v['update_time'] = datetime.now()
+                coll.insert_one(v)
 
     def getAllFuturesInfoFromWind(self):
 
@@ -230,37 +74,69 @@ class DataSaving(object):
 
             count += 1
 
-    def getFuturePriceFromWind(self, contract, cmd, update=1, alldaytrade=0):
-        self.useMongoDB('FuturesDailyWind')
-        self.useMongoCollections('FuturesInfo')
+    def getFuturePriceFromWind(self, collection, contract, alldaytrade, update=1, **kwargs):
+        self.windConn()
+        coll = self.db['Information']
         queryArgs = {'wind_code': contract}
         projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
-        searchRes = self.collection.find_one(queryArgs, projectionField)
+        searchRes = coll.find_one(queryArgs, projectionField)
 
 
-        self.useMongoCollections('%s_Daily' % cmd)
+        if not searchRes:
+            # WIND主力合约, 通常结构为商品代码.交易所代码的形式
+            if update == 0:
+                # 一次性抓取全样本数据
+                # 起始日期为该商品的所有合约中最早的contract_issue_date
+                ptn1 = re.compile('[A-Z]+(?=\.)')
+                cmd1 = ptn1.search(contract).group()
+                ptn2 = re.compile('(?<=\.)[A-Z]+')
+                cmd2 = ptn2.search(contract).group()
+                queryArgs = {'wind_code': {'$regex': '\A%s.+%s\Z' % (cmd1, cmd2)}}
+                projectionField = ['wind_code', 'contract_issue_date']
+                searchRes = coll.find(queryArgs, projectionField).sort('contract_issue_date',
+                                                                       pymongo.ASCENDING).limit(1)
+                start_date = list(searchRes)[0]['contract_issue_date']
+                coll = self.db[collection]
+            elif update == 1:
+                coll = self.db[collection]
+                queryArgs = {'wind_code': contract}
+                projectionField = ['wind_code', 'date']
+                searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+                start_date = list(searchRes)[0]['date'] + timedelta(1)
 
-        if update == 0:
-            start_date = searchRes['contract_issue_date']
             if datetime.now().hour < 16 or alldaytrade:
-                end_date = min(datetime.today() - timedelta(1), searchRes['last_trade_date'])
+                end_date = datetime.today() - timedelta(1)
             else:
-                end_date = min(datetime.today(), searchRes['last_trade_date'])
+                end_date = datetime.today()
 
-        elif update == 1:
-            queryArgs = {'wind_code': contract}
-            projectionField = ['wind_code', 'date']
-            mres = self.collection.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
-            dt_l = list(mres)[0]['date']
-            if dt_l >= searchRes['last_trade_date']:
-                return
-            elif dt_l < searchRes['last_trade_date']:
-                start_date = dt_l + timedelta(1)
+        else:
+            coll = self.db[collection]
+
+            if update == 0:
+                # 一次性全样本抓取数据
+                # 起始日期为合约开始的日期
+                # 当前时间还未收盘或者是全天交易的品种，则结束日期为前一天或合约最后交易日，否则为当天或合约最后交易日
+                start_date = searchRes['contract_issue_date']
                 if datetime.now().hour < 16 or alldaytrade:
-                    end_date = datetime.today() - timedelta(1)
+                    end_date = min(datetime.today() - timedelta(1), searchRes['last_trade_date'])
                 else:
-                    end_date = datetime.today()
-
+                    end_date = min(datetime.today(), searchRes['last_trade_date'])
+            elif update == 1:
+                # 更新新的数据
+                # 在数据库中查找到已有的数据的最后日期，然后+1作为起始日期
+                # 结束日期同上
+                queryArgs = {'wind_code': contract}
+                projectionField = ['wind_code', 'date']
+                mres = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+                dt_l = list(mres)[0]['date']
+                if dt_l >= searchRes['last_trade_date']:
+                    return
+                elif dt_l < searchRes['last_trade_date']:
+                    start_date = dt_l + timedelta(1)
+                    if datetime.now().hour < 16 or alldaytrade:
+                        end_date = datetime.today() - timedelta(1)
+                    else:
+                        end_date = datetime.today()
 
         if start_date > end_date:
             return
@@ -287,46 +163,131 @@ class DataSaving(object):
                 dtemp = price_dict[di].copy()
                 dtemp['date'] = datetime.strptime(str(di), '%Y-%m-%d')
                 dtemp['update_time'] = datetime.now()
-                self.collection.insert_one(dtemp)
+                dtemp.update(kwargs)
+                # print kwargs
+                # print dtemp
+                # print len(dtemp)
+
+                coll.insert_one(dtemp)
                 count += 1
 
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def getMainFuturePriceFromWind(self, cmd, update=1, alldaytrade=1):
-        self.useMongoDB('FuturesDailyWind')
+    # def getMainFuturePriceFromWind(self, cmd, update=1, alldaytrade=1):
+    #     self.useMongoDB('FuturesDailyWind')
+    #
+    #     ptn1 = re.compile('[A-Z]+(?=\.)')
+    #     cmd1 = ptn1.search(cmd).group()
+    #     ptn2 = re.compile('(?<=\.)[A-Z]+')
+    #     cmd2 = ptn2.search(cmd).group()
+    #
+    #     if update == 0:
+    #         self.useMongoCollections('FuturesInfo')
+    #         queryArgs = {'wind_code': {'$regex': '\A%s.+%s\Z' % (cmd1, cmd2)}}
+    #         projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
+    #         searchRes = self.collection.find(queryArgs, projectionField).sort('contract_issue_date', pymongo.ASCENDING).limit(1)
+    #         start_date = list(searchRes)[0]['contract_issue_date']
+    #         self.useMongoCollections('%s_Daily' % cmd)
+    #     elif update == 1:
+    #         self.useMongoCollections('%s_Daily' % cmd)
+    #         queryArgs = {'wind_code': cmd}
+    #         projectionField = ['wind_code', 'date']
+    #         searchRes = self.collection.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+    #         start_date = list(searchRes)[0]['date'] + timedelta(1)
+    #     else:
+    #         raise Exception(u'参数输入错误')
+    #
+    #     if datetime.now().hour < 16 or alldaytrade:
+    #         end_date = datetime.today() - timedelta(1)
+    #     else:
+    #         end_date = datetime.today()
+    #
+    #     if start_date > end_date:
+    #         return
+    #
+    #     res = w.wsd(cmd, 'open, high, low, close, volume, amt, dealnum, oi, settle',
+    #                 beginTime=start_date, endTime=end_date)
+    #
+    #     if res.ErrorCode != 0:
+    #         print res
+    #         raise Exception(u'WIND提取数据出现了错误')
+    #     else:
+    #         dict_res = dict(zip(res.Fields, res.Data))
+    #         df = pd.DataFrame.from_dict(dict_res)
+    #         df.index = res.Times
+    #         df['wind_code'] = cmd
+    #         price_dict = df.to_dict(orient='index')
+    #         total = len(price_dict)
+    #         count = 1
+    #         print u'抓取%s合约的数据' % cmd
+    #         for di in price_dict:
+    #             process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+    #             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+    #             sys.stdout.flush()
+    #
+    #             dtemp = price_dict[di].copy()
+    #             dtemp['date'] = datetime.strptime(str(di), '%Y-%m-%d')
+    #             dtemp['update_time'] = datetime.now()
+    #             self.collection.insert_one(dtemp)
+    #             count += 1
+    #
+    #         sys.stdout.write('\n')
+    #         sys.stdout.flush()
+    #
+    # def getMainFuturePriceAutoFromWind(self, cmd, alldaytrade):
+    #     self.useMongoDB('FuturesDailyWind')
+    #     self.useMongoCollections('%s_Daily' % cmd)
+    #
+    #     if self.collection.find_one({'wind_code': cmd}):
+    #         self.getMainFuturePriceFromWind(cmd, 1, alldaytrade)
+    #     else:
+    #         self.getMainFuturePriceFromWind(cmd, 0, alldaytrade)
+
+    def getFutureGroupPriceFromWind(self, collection, cmd, **kwargs):
+
+        coll = self.db['Information']
+
+        # 在Information表中查找与该商品有关的所有合约
+        # 只针对国内的商品合约
+        # 查找之后还需要填加主力合约的代码
 
         ptn1 = re.compile('[A-Z]+(?=\.)')
         cmd1 = ptn1.search(cmd).group()
         ptn2 = re.compile('(?<=\.)[A-Z]+')
         cmd2 = ptn2.search(cmd).group()
 
-        if update == 0:
-            self.useMongoCollections('FuturesInfo')
-            queryArgs = {'wind_code': {'$regex': '\A%s.+%s\Z' % (cmd1, cmd2)}}
-            projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
-            searchRes = self.collection.find(queryArgs, projectionField).sort('contract_issue_date', pymongo.ASCENDING).limit(1)
-            start_date = list(searchRes)[0]['contract_issue_date']
-            self.useMongoCollections('%s_Daily' % cmd)
-        elif update == 1:
-            self.useMongoCollections('%s_Daily' % cmd)
-            queryArgs = {'wind_code': cmd}
-            projectionField = ['wind_code', 'date']
-            searchRes = self.collection.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
-            start_date = list(searchRes)[0]['date'] + timedelta(1)
-        else:
-            raise Exception(u'参数输入错误')
+        queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
+        projectionField = ['wind_code']
+        searchRes = coll.find(queryArgs, projectionField)
 
-        if datetime.now().hour < 16 or alldaytrade:
-            end_date = datetime.today() - timedelta(1)
+        contract_list = [s['wind_code'] for s in searchRes]
+        # 增加主力合约代码
+        contract_list.append(cmd)
+
+        coll = self.db[collection]
+        for d in contract_list:
+            if coll.find_one({'wind_code': d}):
+                self.getFuturePriceFromWind(collection=collection, contract=d, update=1, **kwargs)
+            else:
+                self.getFuturePriceFromWind(collection=collection, contract=d, update=0, **kwargs)
+
+    def getEDBFromWind(self, collection, edb_code, **kwargs):
+        self.windConn()
+        coll = self.db[collection]
+        if coll.find_one({'wind_code': edb_code}):
+            queryArgs = {'wind_code': edb_code}
+            projectionField = ['wind_code', 'date']
+            searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+            start_date = list(searchRes)[0]['date'] + timedelta(1)
+            end_date = datetime.today()
         else:
+            start_date = '19900101'
             end_date = datetime.today()
 
         if start_date > end_date:
             return
-
-        res = w.wsd(cmd, 'open, high, low, close, volume, amt, dealnum, oi, settle',
-                    beginTime=start_date, endTime=end_date)
+        res = w.edb(edb_code, start_date, end_date, 'Fill=previous')
 
         if res.ErrorCode != 0:
             print res
@@ -335,61 +296,32 @@ class DataSaving(object):
             dict_res = dict(zip(res.Fields, res.Data))
             df = pd.DataFrame.from_dict(dict_res)
             df.index = res.Times
-            df['wind_code'] = cmd
-            price_dict = df.to_dict(orient='index')
-            total = len(price_dict)
+            df['wind_code'] = edb_code
+            df2dict = df.to_dict(orient='index')
+
+            total = len(df2dict)
             count = 1
-            print u'抓取%s合约的数据' % cmd
-            for di in price_dict:
+            print '抓取%s数据' % edb_code
+
+            for di in df2dict:
                 process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
                 sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
                 sys.stdout.flush()
 
-                dtemp = price_dict[di].copy()
+                # 这一句是不是必要啊？
+                # if coll.find_one({'wind_code': edb_code, 'date': datetime.strptime(str(di), '%Y-%m-%d')}):
+                #     continue
+
+                dtemp = df2dict[di].copy()
                 dtemp['date'] = datetime.strptime(str(di), '%Y-%m-%d')
                 dtemp['update_time'] = datetime.now()
-                self.collection.insert_one(dtemp)
+                dtemp.update(kwargs)
+                coll.insert_one(dtemp)
                 count += 1
 
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def getMainFuturePriceAutoFromWind(self, cmd, alldaytrade):
-        self.useMongoDB('FuturesDailyWind')
-        self.useMongoCollections('%s_Daily' % cmd)
-
-        if self.collection.find_one({'wind_code': cmd}):
-            self.getMainFuturePriceFromWind(cmd, 1, alldaytrade)
-        else:
-            self.getMainFuturePriceFromWind(cmd, 0, alldaytrade)
-
-    def getFuturePriceAutoFromWind(self, cmd, alldaytrade):
-        self.useMongoDB('FuturesDailyWind')
-        self.useMongoCollections('FuturesInfo')
-
-        ptn1 = re.compile('[A-Z]+(?=\.)')
-        cmd1 = ptn1.search(cmd).group()
-        ptn2 = re.compile('(?<=\.)[A-Z]+')
-        cmd2 = ptn2.search(cmd).group()
-
-        queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
-        projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
-        searchRes = self.collection.find(queryArgs, projectionField).sort('wind_code', pymongo.ASCENDING)
-
-        self.useMongoCollections('%s_Daily' % cmd)
-
-        contract_dict = {}
-
-        for s in searchRes:
-            contract_dict[s['wind_code']] = {'start_date': s['contract_issue_date'],
-                                             'end_date': s['last_trade_date']}
-
-        for d in contract_dict:
-
-            if self.collection.find_one({'wind_code': d}):
-                self.getFuturePriceFromWind(contract=d, cmd=cmd, update=1, alldaytrade=alldaytrade)
-            else:
-                self.getFuturePriceFromWind(contract=d, cmd=cmd, update=0, alldaytrade=alldaytrade)
 
     def getFXFromWind(self, edb_name):
         self.useMongoDB('EDBWind')
@@ -443,34 +375,42 @@ class DataSaving(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def getFuturePriceFromRT(self, cmd):
+
+    def getPriceFromRT(self, collection, cmd, type, **kwargs):
+        # futures是来判断是否抓取期货数据，涉及到字段问题
+        # 这里的一个非常重要的问题就是交易时间
+        # 比如现在北京时间凌晨1点，欧美交易所的时间仍是昨天，此时如果抓取数据，虽然是抓昨天的数据，但是交易依然在进行，所以此时会出错
+
         if not ek.get_app_key():
             self.rtConn()
-        self.useMongoDB('FuturesDailyRT')
-        self.useMongoCollections('Oil')
+        coll = self.db[collection]
 
-        tr_code = cmd + 'c1'
-
-        if self.collection.find_one({'tr_code': tr_code}):
-            queryArgs = {'tr_code': tr_code}
+        if coll.find_one({'tr_code': cmd}):
+            queryArgs = {'tr_code': cmd}
             projectionField = ['tr_code', 'date']
-            searchRes = self.collection.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+            searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
             start_date = list(searchRes)[0]['date'] + timedelta(1)
             end_date = datetime.today() - timedelta(1)
-
         else:
-            start_date = '2000-01-01'
+            start_date = datetime.strptime('2000-01-01', '%Y-%m-%d')
             end_date = datetime.today() - timedelta(1)
 
         if start_date > end_date:
             return
 
-        res = ek.get_timeseries(tr_code, start_date=start_date, end_date=end_date)
-        res['tr_code'] = tr_code
+        if type == 'futures':
+            fields = ['HIGH', 'LOW', 'OPEN', 'CLOSE', 'VOLUME']
+        elif type == 'swap' or type == 'spot':
+            fields = ['CLOSE']
+
+        res = ek.get_timeseries(cmd, start_date=start_date, end_date=end_date, fields=fields)
+        res['tr_code'] = cmd
+        print res
         res_dict = res.to_dict(orient='index')
+
         total = len(res_dict)
         count = 1
-        print u'抓取路透%s合约的数据' % tr_code
+        print u'抓取路透%s合约的数据' % cmd
         for di in res_dict:
             process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
@@ -479,12 +419,13 @@ class DataSaving(object):
             dtemp = res_dict[di].copy()
             dtemp['date'] = di
             dtemp['update_time'] = datetime.now()
-            self.collection.insert_one(dtemp)
+            dtemp.update(kwargs)
+
+            coll.insert_one(dtemp)
             count += 1
 
         sys.stdout.write('\n')
         sys.stdout.flush()
-
 
 
     def test(self, cmd):
@@ -513,4 +454,10 @@ if __name__ == '__main__':
     # DataSaving().getAllFuturesInfoFromWind()
     # DataSaving().test('J.DCE')
     # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
-    DataSaving().getFuturePriceFromRT('LCO')
+    # DataSaving().getFuturePriceFromRT('LCO')
+    a = DataSaving(host='192.168.2.171', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB')
+
+
+    # res = w.wset(tablename='futurecc', startdate='2018-01-01', enddate='2018-10-19', wind_code='TA.CZC')
+    # print res
+
