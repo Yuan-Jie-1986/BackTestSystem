@@ -5,7 +5,6 @@ import pandas as pd
 from datetime import datetime, date, timedelta
 import pprint
 import sys
-from constant import *
 import re
 import eikon as ek
 
@@ -16,34 +15,16 @@ class DataSaving(object):
         self.conn = pymongo.MongoClient(host=host, port=port)
         self.db = self.conn[db]
         self.db.authenticate(usr, pwd)
-        # self.cmd_exchange = self.getCmdExchange()
 
     def rtConn(self):
         TR_ID = '70650e2c881040408f6f95dea2bf3fa13e9f66fe'
         ek.set_app_key(TR_ID)
+        return
 
     def windConn(self):
         if not w.isconnected():
             w.start()
-
-    def getCmdExchange(self):
-        ptn1 = re.compile('[A-Z]+(?=\.)')
-        ptn2 = re.compile('(?<=\.)[A-Z]+')
-        cmd_dict = {}
-        for f in futures_type:
-            cmd = ptn1.search(f).group()
-            # exchange = ptn2.search(f).group()
-            cmd_dict[cmd] = f
-            # cmd_dict[cmd] = exchange
-        return cmd_dict
-
-    def useMongoCollections(self, collection):
-        self.collection = self.db[collection]
-
-    def getMDFromWind(self, db_name, table_name, contract):
-        self.useMongoDB(db_name)
-        self.useMongoCollections('FuturesInfo')
-        queryArgs = {'wind_code': contract}
+        return
 
     def getFuturesInfoFromWind(self, collection, cmd, **kwargs):
         self.windConn()
@@ -60,19 +41,7 @@ class DataSaving(object):
             if not coll.find_one({'wind_code': v['wind_code']}):
                 v['update_time'] = datetime.now()
                 coll.insert_one(v)
-
-    def getAllFuturesInfoFromWind(self):
-
-        total = len(futures_type)
-        count = 1
-        for f in futures_type:
-            process_str = '>' * int(count * 100. / total) + ' ' * int(100. - count * 100. / total)
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
-
-            self.getFuturesInfoFromWind(f)
-
-            count += 1
+        return
 
     def getFuturePriceFromWind(self, collection, contract, alldaytrade, update=1, **kwargs):
         self.windConn()
@@ -174,75 +143,7 @@ class DataSaving(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    # def getMainFuturePriceFromWind(self, cmd, update=1, alldaytrade=1):
-    #     self.useMongoDB('FuturesDailyWind')
-    #
-    #     ptn1 = re.compile('[A-Z]+(?=\.)')
-    #     cmd1 = ptn1.search(cmd).group()
-    #     ptn2 = re.compile('(?<=\.)[A-Z]+')
-    #     cmd2 = ptn2.search(cmd).group()
-    #
-    #     if update == 0:
-    #         self.useMongoCollections('FuturesInfo')
-    #         queryArgs = {'wind_code': {'$regex': '\A%s.+%s\Z' % (cmd1, cmd2)}}
-    #         projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
-    #         searchRes = self.collection.find(queryArgs, projectionField).sort('contract_issue_date', pymongo.ASCENDING).limit(1)
-    #         start_date = list(searchRes)[0]['contract_issue_date']
-    #         self.useMongoCollections('%s_Daily' % cmd)
-    #     elif update == 1:
-    #         self.useMongoCollections('%s_Daily' % cmd)
-    #         queryArgs = {'wind_code': cmd}
-    #         projectionField = ['wind_code', 'date']
-    #         searchRes = self.collection.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
-    #         start_date = list(searchRes)[0]['date'] + timedelta(1)
-    #     else:
-    #         raise Exception(u'参数输入错误')
-    #
-    #     if datetime.now().hour < 16 or alldaytrade:
-    #         end_date = datetime.today() - timedelta(1)
-    #     else:
-    #         end_date = datetime.today()
-    #
-    #     if start_date > end_date:
-    #         return
-    #
-    #     res = w.wsd(cmd, 'open, high, low, close, volume, amt, dealnum, oi, settle',
-    #                 beginTime=start_date, endTime=end_date)
-    #
-    #     if res.ErrorCode != 0:
-    #         print res
-    #         raise Exception(u'WIND提取数据出现了错误')
-    #     else:
-    #         dict_res = dict(zip(res.Fields, res.Data))
-    #         df = pd.DataFrame.from_dict(dict_res)
-    #         df.index = res.Times
-    #         df['wind_code'] = cmd
-    #         price_dict = df.to_dict(orient='index')
-    #         total = len(price_dict)
-    #         count = 1
-    #         print u'抓取%s合约的数据' % cmd
-    #         for di in price_dict:
-    #             process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-    #             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-    #             sys.stdout.flush()
-    #
-    #             dtemp = price_dict[di].copy()
-    #             dtemp['date'] = datetime.strptime(str(di), '%Y-%m-%d')
-    #             dtemp['update_time'] = datetime.now()
-    #             self.collection.insert_one(dtemp)
-    #             count += 1
-    #
-    #         sys.stdout.write('\n')
-    #         sys.stdout.flush()
-    #
-    # def getMainFuturePriceAutoFromWind(self, cmd, alldaytrade):
-    #     self.useMongoDB('FuturesDailyWind')
-    #     self.useMongoCollections('%s_Daily' % cmd)
-    #
-    #     if self.collection.find_one({'wind_code': cmd}):
-    #         self.getMainFuturePriceFromWind(cmd, 1, alldaytrade)
-    #     else:
-    #         self.getMainFuturePriceFromWind(cmd, 0, alldaytrade)
+
 
     def getFutureGroupPriceFromWind(self, collection, cmd, **kwargs):
 
@@ -322,64 +223,12 @@ class DataSaving(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-
-    def getFXFromWind(self, edb_name):
-        self.useMongoDB('EDBWind')
-        self.useMongoCollections('FX')
-        edb_code = edb_dict[edb_name]
-        if self.collection.find_one({'wind_code': edb_code}):
-            queryArgs = {'wind_code': edb_code}
-            projectionField = ['wind_code', 'date']
-            searchRes = self.collection.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
-            start_date = list(searchRes)[0]['date'] + timedelta(1)
-            end_date = datetime.today()
-        else:
-            start_date = '19900101'
-            end_date = datetime.today()
-
-        if start_date > end_date:
-            return
-
-        res = w.edb(edb_code, start_date, end_date, 'Fill=Previous')
-
-        if res.ErrorCode != 0:
-            print res
-            raise Exception(u'WIND提取数据出现了错误')
-        else:
-            dict_res = dict(zip(res.Fields, res.Data))
-            df = pd.DataFrame.from_dict(dict_res)
-            df.index = res.Times
-            df['wind_code'] = edb_code
-            df['edb_name'] = edb_name
-
-            fx_dict = df.to_dict(orient='index')
-
-            total = len(fx_dict)
-            count = 1
-
-            print '抓取%s数据' % edb_name
-            for di in fx_dict:
-                process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-                sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-                sys.stdout.flush()
-
-                if self.collection.find_one({'wind_code': edb_code, 'date': datetime.strptime(str(di), '%Y-%m-%d')}):
-                    continue
-
-                dtemp = fx_dict[di].copy()
-                dtemp['date'] = datetime.strptime(str(di), '%Y-%m-%d')
-                dtemp['update_time'] = datetime.now()
-                self.collection.insert_one(dtemp)
-                count += 1
-
-            sys.stdout.write('\n')
-            sys.stdout.flush()
-
-
     def getPriceFromRT(self, collection, cmd, type, **kwargs):
-        # futures是来判断是否抓取期货数据，涉及到字段问题
-        # 这里的一个非常重要的问题就是交易时间
-        # 比如现在北京时间凌晨1点，欧美交易所的时间仍是昨天，此时如果抓取数据，虽然是抓昨天的数据，但是交易依然在进行，所以此时会出错
+        """
+        futures是来判断是否抓取期货数据，涉及到字段问题
+        这里的一个非常重要的问题就是交易时间
+        比如现在北京时间凌晨1点，欧美交易所的时间仍是昨天，此时如果抓取数据，虽然是抓昨天的数据，但是交易依然在进行，所以此时会出错
+        """
 
         if not ek.get_app_key():
             self.rtConn()
@@ -427,21 +276,43 @@ class DataSaving(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
+        return
 
-    def test(self, cmd):
-        self.useMongoDB('FuturesDailyWind')
-        self.useMongoCollections('FuturesInfo')
 
-        ptn1 = re.compile('[A-Z]+(?=\.)')
-        cmd1 = ptn1.search(cmd).group()
-        ptn2 = re.compile('(?<=\.)[A-Z]+')
-        cmd2 = ptn2.search(cmd).group()
+    def getDataFromCSV(self, collection, cmd, path, **kwargs):
+        """
+        从csv文件中导入数据到数据库
+        """
+        coll = self.db[collection]
 
-        queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
-        projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
-        searchRes = self.collection.find(queryArgs, projectionField).sort('wind_code', pymongo.ASCENDING)
-        for s in searchRes:
-            print s
+        df = pd.read_csv(path, index_col=0, parse_dates=True)
+
+        if coll.find_one({'commodity': cmd}):
+            searchRes = coll.find({'commodity': cmd}, ['date']).sort('date', pymongo.DESCENDING).limit(1)
+            start_date = list(searchRes)[0]['date']
+            df = df[df.index > start_date]
+
+        df.rename(columns={cmd: 'price'}, inplace=True)
+        df['commodity'] = cmd
+        for k, v in kwargs.items():
+            df[k] = v
+
+        res_dict = df.to_dict(orient='index')
+        total = len(res_dict)
+        count = 1
+        print '抓取%s数据' % cmd
+        for di in res_dict:
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+            dtemp = res_dict[di].copy()
+            dtemp['date'] = di
+            dtemp['update_time'] = datetime.now()
+            coll.insert_one(dtemp)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
 
 if __name__ == '__main__':

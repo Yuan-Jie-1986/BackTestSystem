@@ -15,7 +15,7 @@ collection:
   - SpotMD
   - EDB
   - Information
-#  - ICEPrice
+  - ICEPrice
 
 FuturesMD:
 
@@ -52,7 +52,6 @@ FuturesMD:
     alldaytrade: 1
     cmd: [B.IPE]
 
-
   -
     source: ThomsonReuters
     func: getPriceFromRT
@@ -75,15 +74,34 @@ SpotMD:
     type: spot
     cmd: [WTM-, WTC-]
 
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: MEG
+    area: 华东主港
+    unit: 元/吨
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MEG.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PX
+    area: CFR中国
+    unit: 美元/吨
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PX.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: BZ
+    area: FOB韩国
+    unit: 美元/吨
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\BZ.csv"
+
 
 EDB:
   - {func: getEDBFromWind, source: WIND, cmd: M0067855, edb_name: "即期汇率:美元兑人民币", unit: null, frequency: Daily}
 
-
-
-#  M0067855:
-#    name: 即期汇率:美元兑人民币
-#    unit:
 
 Information:
   -
@@ -111,34 +129,37 @@ Information:
       - SC.INE
       - B.IPE
 
-#ICEPrice:
+ICEPrice:
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: MOPJ
+    unit: 美元/吨
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MOPJ.csv"
 
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: MOGAS
+    unit: 美元/桶
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MOGAS.csv"
 
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: LPG
+    unit: 美元/吨
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\LPG.csv"
 
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: Gasoil10
+    unit: 美元/桶
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\Gasoil10.csv"
 
-
-#WIND:
-#    FUTURES_MD:
-#        DB_TABLE: futures_md
-#        CATEGORY:
-#        -
-#            Exchange: DCE
-#            Alldaytrade: 0  # 该字段用来表示是否为全天交易
-#            Commodity: [L, PP, I, J, JM, M, C]
-#        -
-#            Exchange: SHF
-#            Alldaytrade: 0
-#            Commodity: [RB, BU, RU, NI, HC]
-#        -
-#            Exchange: CZC
-#            Alldaytrade: 0
-#            Commodity: [TA, MA, AP, ZC, SR, RM]
-#        -
-#            Exchange: INE
-#            Alldaytrade: 0
-#            Commodity: [SC]
-#        -
-#            Exchange: IPE
-#            Alldaytrade: 1
-#            Commodity: [B]
 

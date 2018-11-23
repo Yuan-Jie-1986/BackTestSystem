@@ -2,7 +2,10 @@
 
 import yaml
 from base import DataSaving
-import sys
+import requests
+
+# 切记：路透的数据更新需要等到九点之后，否则可能会更新到还没有停止交易的合约。
+# 对于国外的合约的数据，一定要检查合约的交易时间以及与北京时间的时差问题
 
 
 f = open('config.yaml')
@@ -16,16 +19,26 @@ db = res['db_name']
 ds_obj = DataSaving(host=host, port=port, usr=usr, pwd=pwd, db=db)
 
 cols = res['collection']
+
+error_list = []
+
 for col in cols:
 
-    col_content = res[col]
-    for cc in col_content:
-        func = cc.pop('func')
-        cmd_list = cc.pop('cmd')
-        if isinstance(cmd_list, list):
-            for c in cmd_list:
-                getattr(ds_obj, func)(col, c, **cc)
-        else:
-            getattr(ds_obj, func)(col, cmd_list, **cc)
+    try:
+        col_content = res[col]
+        for cc in col_content:
+            func = cc.pop('func')
+            cmd_list = cc.pop('cmd')
+            if isinstance(cmd_list, list):
+                for c in cmd_list:
+                    getattr(ds_obj, func)(col, c, **cc)
+            else:
+                getattr(ds_obj, func)(col, cmd_list, **cc)
+    except requests.exceptions.MissingSchema, e:
+        print e.message
+        error_list.append(e)
 
 f.close()
+
+for err in error_list:
+    print err.message
