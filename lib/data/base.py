@@ -7,14 +7,29 @@ import pprint
 import sys
 import re
 import eikon as ek
+import logging
 
 
 class DataSaving(object):
-    def __init__(self, host, port, usr, pwd, db):
+    def __init__(self, host, port, usr, pwd, db, log_path):
 
         self.conn = pymongo.MongoClient(host=host, port=port)
         self.db = self.conn[db]
         self.db.authenticate(usr, pwd)
+
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
+
+        formatter = logging.Formatter(fmt='%(asctime)s %(name)s %(filename)s %(funcName)s %(levelname)s %(message)s',
+                                      datefmt='%Y-%m-%d %H:%M:%S %a')
+
+        fh = logging.FileHandler(log_path)
+        ch = logging.StreamHandler()
+        fh.setFormatter(formatter)
+        ch.setFormatter(formatter)
+        self.logger.addHandler(fh)
+        self.logger.addHandler(ch)
+
 
     def rtConn(self):
         TR_ID = '70650e2c881040408f6f95dea2bf3fa13e9f66fe'
@@ -31,6 +46,8 @@ class DataSaving(object):
         coll = self.db[collection]
         wres = w.wset(tablename='futurecc', startdate='1990-01-01', enddate=datetime.today(), wind_code=cmd)
         wfields = wres.Fields
+        unit_total = len(wfields) * len(wres.Data[0])
+        self.logger.info('共抓取了关于%s品种%d个单元格数据' % (cmd, unit_total))
         res = dict(zip(wfields, wres.Data))
         res.pop('change_limit')
         res.pop('target_margin')
@@ -49,7 +66,6 @@ class DataSaving(object):
         queryArgs = {'wind_code': contract}
         projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
         searchRes = coll.find_one(queryArgs, projectionField)
-
 
         if not searchRes:
             # WIND主力合约, 通常结构为商品代码.交易所代码的形式
@@ -112,10 +128,13 @@ class DataSaving(object):
 
         res = w.wsd(contract, 'open, high, low, close, volume, amt, dealnum, oi, settle',
                     beginTime=start_date, endTime=end_date)
+
         if res.ErrorCode != 0:
             print res
             raise Exception(u'WIND提取数据出现了错误')
         else:
+            unit_total = len(res.Data[0]) * len(res.Fields)
+            self.logger.info('抓取%s合约%s到%s的市场价格数据，共计%d个' % (contract, start_date, end_date, unit_total))
             dict_res = dict(zip(res.Fields, res.Data))
             df = pd.DataFrame.from_dict(dict_res)
             df.index = res.Times
@@ -142,7 +161,6 @@ class DataSaving(object):
 
             sys.stdout.write('\n')
             sys.stdout.flush()
-
 
 
     def getFutureGroupPriceFromWind(self, collection, cmd, **kwargs):
@@ -194,6 +212,8 @@ class DataSaving(object):
             print res
             raise Exception(u'WIND提取数据出现了错误')
         else:
+            unit_total = len(res.Data[0]) * len(res.Fields)
+            self.logger.info('抓取EDB%s数据%s到%s的数据，共计%d个' % (edb_code, start_date, end_date, unit_total))
             dict_res = dict(zip(res.Fields, res.Data))
             df = pd.DataFrame.from_dict(dict_res)
             df.index = res.Times
@@ -253,8 +273,15 @@ class DataSaving(object):
             fields = ['CLOSE']
 
         res = ek.get_timeseries(cmd, start_date=start_date, end_date=end_date, fields=fields)
+
+        if 'COUNT' in res.columns:
+            self.logger.info('抓取%s%s到%s数据失败，行情交易未结束，请稍后重试' % (cmd, start_date, end_date))
+            return
+
+        unit_total = len(res.values.flatten())
+        self.logger.info('抓取%s%s到%s的数据，共计%d个' % (cmd, start_date, end_date, unit_total))
+
         res['tr_code'] = cmd
-        print res
         res_dict = res.to_dict(orient='index')
 
         total = len(res_dict)
@@ -291,6 +318,11 @@ class DataSaving(object):
             searchRes = coll.find({'commodity': cmd}, ['date']).sort('date', pymongo.DESCENDING).limit(1)
             start_date = list(searchRes)[0]['date']
             df = df[df.index > start_date]
+        if df.empty:
+            return
+
+        unit_total = len(df.values.flatten())
+        self.logger.info('抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
 
         df.rename(columns={cmd: 'price'}, inplace=True)
         df['commodity'] = cmd
@@ -308,7 +340,7 @@ class DataSaving(object):
             dtemp = res_dict[di].copy()
             dtemp['date'] = di
             dtemp['update_time'] = datetime.now()
-            coll.insert_one(dtemp)
+            # coll.insert_one(dtemp)
             count += 1
 
         sys.stdout.write('\n')
@@ -326,9 +358,12 @@ if __name__ == '__main__':
     # DataSaving().test('J.DCE')
     # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
     # DataSaving().getFuturePriceFromRT('LCO')
-    a = DataSaving(host='192.168.2.171', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB')
-
-
+    a = DataSaving(host='192.168.2.171', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
+                   log_path="E:\\CBNB\\BackTestSystem\\data_saving.log")
+    # a.getFuturesInfoFromWind(collection='Information', cmd='BU.SHF')
+    # a.getFuturePriceFromWind('FuturesMD', 'TA.CZC', alldaytrade=0)
+    # a.getPriceFromRT('FuturesMD', cmd='LCOc1', type='futures')
+    a.getDataFromCSV(collection='SpotMD', cmd='PX', path='E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PX.csv')
     # res = w.wset(tablename='futurecc', startdate='2018-01-01', enddate='2018-10-19', wind_code='TA.CZC')
     # print res
 

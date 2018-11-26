@@ -8,13 +8,13 @@ host: 192.168.2.171
 port: 27017
 user: yuanjie
 pwd: yuanjie
-
+log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
   - FuturesMD
   - SpotMD
   - EDB
-  - Information
+#  - Information
   - ICEPrice
 
 FuturesMD:
@@ -98,36 +98,34 @@ SpotMD:
     unit: 美元/吨
     path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\BZ.csv"
 
-
 EDB:
   - {func: getEDBFromWind, source: WIND, cmd: M0067855, edb_name: "即期汇率:美元兑人民币", unit: null, frequency: Daily}
 
-
-Information:
-  -
-    func: getFuturesInfoFromWind
-    source: WIND
-    cmd:
-      - L.DCE
-      - PP.DCE
-      - I.DCE
-      - J.DCE
-      - JM.DCE
-      - M.DCE
-      - C.DCE
-      - RB.SHF
-      - BU.SHF
-      - RU.SHF
-      - NI.SHF
-      - HC.SHF
-      - TA.CZC
-      - MA.CZC
-      - AP.CZC
-      - ZC.CZC
-      - SR.CZC
-      - RM.CZC
-      - SC.INE
-      - B.IPE
+#Information:
+#  -
+#    func: getFuturesInfoFromWind
+#    source: WIND
+#    cmd:
+#      - L.DCE
+#      - PP.DCE
+#      - I.DCE
+#      - J.DCE
+#      - JM.DCE
+#      - M.DCE
+#      - C.DCE
+#      - RB.SHF
+#      - BU.SHF
+#      - RU.SHF
+#      - NI.SHF
+#      - HC.SHF
+#      - TA.CZC
+#      - MA.CZC
+#      - AP.CZC
+#      - ZC.CZC
+#      - SR.CZC
+#      - RM.CZC
+#      - SC.INE
+#      - B.IPE
 
 ICEPrice:
   -

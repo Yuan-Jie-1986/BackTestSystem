@@ -15,8 +15,9 @@ port = res['port']
 usr = res['user']
 pwd = res['pwd']
 db = res['db_name']
+logpath = res['log_path']
 
-ds_obj = DataSaving(host=host, port=port, usr=usr, pwd=pwd, db=db)
+ds_obj = DataSaving(host=host, port=port, usr=usr, pwd=pwd, db=db, log_path=logpath)
 
 cols = res['collection']
 
