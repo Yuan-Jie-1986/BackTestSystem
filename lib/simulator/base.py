@@ -3,12 +3,61 @@
 import numpy as np
 import pandas as pd
 import pymongo
-import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import pprint
+import yaml
+import os
 
 
-class TradeRecord(object):
+# 单次的交易记录
+class TradeRecordByTimes(object):
+    def __init__(self):
+        self.dt = None  # 交易时间
+        self.trade_commodity = None  # 交易商品
+        self.trade_contract = None  # 交易合约
+        self.trade_direction = None  # 交易方向, 1为做多，-1为做空
+        self.trade_price = None  # 交易价格
+        self.trade_volume = None  # 交易量
+        self.trade_multiplier = None  # 交易乘数
+        self.trade_margin_ratio = None  # 保证金比率
+        self.trade_margin_occupation = None  # 保证金占用
+        self.trade_type = None  # 交易类型，是平仓还是开仓。1为开仓，-1为平仓
+
+    def setDT(self, val):
+        self.dt = val
+
+    def setPrice(self, val):
+        self.trade_price = val
+
+    def setCommodity(self, val):
+        self.trade_commodity = val
+
+    def setContract(self, val):
+        self.trade_contract = val
+
+    def setDirection(self, val):
+        self.trade_direction = val
+
+    def setType(self, val):
+        self.trade_type = val
+
+    def setVolume(self, val):
+        self.trade_volume = val
+
+    def setMultiplier(self, val):
+        self.trade_multiplier = val
+
+    def setMarginRatio(self, val):
+        self.trade_margin_ratio = val
+
+    def calMarginOccupation(self):
+        self.trade_margin_occupation = self.trade_price * self.trade_multiplier * self.trade_margin_ratio * \
+                                       self.trade_volume
+
+
+
+# 逐笔的交易记录
+class TradeRecordByTrade(object):
 
     def __init__(self):
         self.open = None
@@ -57,42 +106,252 @@ class TradeRecord(object):
         self.count = val
 
 
-# class TradeTS(object):
-#     def __init__(self):
-#         self.dt = None
-#         self.
+
+# 逐日的交易记录
+class TradeRecordByDay(object):
+    def __init__(self, dt, holdPosDict, MkData, newTrade):
+        self.dt = dt  # 日期
+        self.newTrade = newTrade  # 当天进行的交易
+        self.mkdata = MkData  # 合约市场数据
+        self.holdPosition = holdPosDict  # 之前已有的持仓, 字典中的volume的值是有正有负，正值代表持多仓，负值为空仓
+        self.daily_pnl = 0
+
+    def addNewPositon(self):
+
+        for tObj in self.newTrade:
+
+            if tObj.dt != self.dt:
+                continue
+
+            if tObj.trade_contract not in self.holdPosition:
+                self.holdPosition[tObj.trade_contract] = dict()
+
+            self.holdPosition[tObj.trade_contract].setdefault('newTrade', []).append(tObj)
+
+    def getFinalMK(self):
+
+        for k, v in self.holdPosition.items():
+
+            if 'volume' in v:
+                self.daily_pnl = self.daily_pnl + v['volume'] * (self.mkdata[k]['CLOSE'] - self.mkdata[k]['OPEN']) \
+                                 * self.mkdata[k]['multiplier']
+            else:
+                self.holdPosition[k]['volume'] = 0
+
+            if 'newTrade' in v:
+
+                for nt in v['newTrade']:
+                    # print '--------------'
+                    # print self.holdPosition
+
+
+                    self.daily_pnl = self.daily_pnl + nt.trade_volume * nt.trade_direction * nt.trade_type * \
+                                     nt.trade_multiplier * (self.mkdata[k]['CLOSE'] - nt.trade_price)
+                    print 'before', k, self.dt, self.holdPosition[k]
+                    self.holdPosition[k]['volume'] = self.holdPosition[k]['volume'] + nt.trade_volume * \
+                                                     nt.trade_direction * nt.trade_type
+                    print nt.trade_volume
+                    print 'after', k, self.dt, self.holdPosition[k]
+
+                    # print nt.__dict__
+                    # print self.dt, k, self.holdPosition
+
+                # print '111', self.holdPosition[k]
+                del self.holdPosition[k]['newTrade']
+
+
+
+            if self.holdPosition[k]['volume'] == 0:
+                del self.holdPosition[k]
+
+            print 'test', self.holdPosition[k]
+
+
+        return self.daily_pnl
+
+    def getHoldPosition(self):
+        print 'sfasfa', self.dt, self.holdPosition
+        return self.holdPosition
+
 
 class BacktestSys(object):
 
     def __init__(self):
+        # self.start_date = None  # 策略起始日期
+        # self.end_date = None  # 结束日期
+        # # self.lookback = None
+        # # self.init_date = None
+        # self.net_value = None  # 净值曲线
+        # self.periods = None  # 持仓时间长度
+        # self.rtn_daily = None  # 日收益率
+        # # self.weights = None  # 日权重
+        # self.leverage = None  # 杠杆率
+        # self.capital = None  # 总资金
+        # self.bt_mode = None
+        # self.contract = None  # 交易的合约
+        # # self.multiplier = None  # 合约乘数
+        # self.margin_ratio = None
+        pass
 
-        self.start_date = None # 策略起始日期
-        self.end_date = None # 结束日期
-        # self.lookback = None
-        # self.init_date = None
-        self.net_value = None # 净值曲线
-        self.periods = None # 持仓时间长度
-        self.rtn_daily = None # 日收益率
-        # self.weights = None  # 日权重
-        self.leverage = None  # 杠杆率
-        self.capital = None  # 总资金
-        self.bt_mode = None
-        self.contract = None  # 交易的合约
-        # self.multiplier = None  # 合约乘数
-        self.margin_ratio = None
+    def prepare(self):
+        # 根据yaml配置文件从数据库中抓取数据，并对回测进行参数设置
+        current_yaml = '.'.join((os.path.splitext(self.current_file)[0], 'yaml'))
+        f = open(current_yaml)
+        conf = yaml.load(f)
 
-        # 连接mongoDB数据库
-        self.conn = pymongo.MongoClient(host='192.168.2.171', port=27017)
+        # 回测起始时间
+        self.start_dt = datetime.strptime(conf['start_date'], '%Y%m%d')
 
-    def useDBCollections(self, db, collection):
-        dbs = self.conn[db]
-        col = dbs[collection]
-        return col
+        # 回测结束时间
+        self.end_dt = datetime.strptime(conf['end_date'], '%Y%m%d')
+
+        # 数据库的配置信息
+        host = conf['host']
+        port = conf['port']
+        usr = conf['user']
+        pwd = conf['pwd']
+        db_nm = conf['db_name']
+
+        conn = pymongo.MongoClient(host=host, port=port)
+        self.db = conn[db_nm]
+        self.db.authenticate(name=usr, password=pwd)
+
+        # 将需要的数据信息存到字典self.data中，key是各个合约，value仍然是个字典，里面包含需要的字段信息
+        # e.g. self.data = {'TA.CZC': {'CLOSE': [], 'date': []}}
+
+        raw_data = conf['data']
+        self.data = {}
+        self.unit = conf['trade_unit']
+        self.bt_mode = conf['backtest_mode']
+        self.category = {}
+        for d in raw_data:
+            self.category[d['obj_content']] = d['commodity']
+            table = self.db[d['collection']] if 'collection' in d else self.db['FuturesMD']
+            query_arg = {d['obj_field']: d['obj_content'], 'date': {'$gte': self.start_dt, '$lte': self.end_dt}}
+            projection_fields = ['date'] + d['fields']
+            res = table.find(query_arg, projection_fields).sort('date', pymongo.ASCENDING)
+            df_res = pd.DataFrame.from_records(res)
+            df_res.drop(columns='_id', inplace=True)
+            self.data[d['obj_content']] = df_res.to_dict(orient='list')
+
+        # 将提取的数据按照时间的并集重新生成
+        date_set = set()
+        for _, v in self.data.items():
+            date_set = date_set.union(v['date'])
+        self.dt = np.array(list(date_set))
+        self.dt.sort()
+
+        for k, v in self.data.items():
+            con = np.in1d(self.dt, v['date'])
+            self.data[k].pop('date')
+            for sub_k, sub_v in v.items():
+                if sub_k != 'date':
+                    temp = sub_v
+                    self.data[k][sub_k] = np.ones(self.dt.shape) * np.nan
+                    self.data[k][sub_k][con] = temp
 
     def strategy(self):
         raise NotImplementedError
 
-    def calc_pnl(self, db, collection, contract, multiplier, wgts, tcost_type, tcost):
+    def getPnl(self, wgtsDict):
+
+        # 检查权重向量与时间向量长度是否一致
+        for k, v in wgtsDict.items():
+            if len(v) != len(self.dt):
+                print u'%s的权重向量与时间向量长度不一致' % k
+                raise Exception(u'权重向量与时间向量长度不一致')
+
+        pnl_daily = np.zeros_like(self.dt)
+
+        holdpos = {}
+
+        for i, v in enumerate(self.dt):
+            newtradedaily = []
+            mkdata = {}
+            for k, val in wgtsDict.items():
+                mkdata[k] = {'CLOSE': self.data[k]['CLOSE'][i],
+                             'OPEN': self.data[k]['OPEN'][i],
+                             'multiplier': self.unit[self.category[k]]}
+
+                # print k, mkdata[k]
+                if np.isnan(mkdata[k]['CLOSE']):
+                    continue
+
+                if i == 0 or np.isnan(self.data[k]['CLOSE'][i-1]):
+                    if val[i] != 0:
+                        newtrade = TradeRecordByTimes()
+                        newtrade.setDT(v)
+                        newtrade.setContract(k)
+                        newtrade.setCommodity(self.category[k])
+                        newtrade.setPrice(self.data[k][self.bt_mode][i])
+                        newtrade.setType(1)
+                        newtrade.setVolume(abs(val[i]))
+                        newtrade.setMultiplier(self.unit[self.category[k]])
+                        newtrade.setDirection(np.sign(val[i]))
+
+                        newtradedaily.append(newtrade)
+
+                else:
+                    if val[i] * val[i-1] < 0:
+                        newtrade1 = TradeRecordByTimes()
+                        newtrade1.setDT(v)
+                        newtrade1.setContract(k)
+                        newtrade1.setCommodity(self.category[k])
+                        newtrade1.setPrice(self.data[k][self.bt_mode][i])
+                        newtrade1.setType(-1)
+                        newtrade1.setVolume(abs(val[i-1]))
+                        newtrade1.setMultiplier(self.unit[self.category[k]])
+                        newtrade1.setDirection(np.sign(val[i]))
+                        newtradedaily.append(newtrade1)
+
+                        newtrade2 = TradeRecordByTimes()
+                        newtrade2.setDT(v)
+                        newtrade2.setContract(k)
+                        newtrade2.setCommodity(self.category[k])
+                        newtrade2.setPrice(self.data[k][self.bt_mode][i])
+                        newtrade2.setType(1)
+                        newtrade2.setVolume(abs(val[i]))
+                        newtrade2.setMultiplier(self.unit[self.category[k]])
+                        newtrade2.setDirection(np.sign(val[i]))
+                        newtradedaily.append(newtrade2)
+
+                    elif val[i] == val[i-1]:  # 没有交易
+                        continue
+
+                    else:
+                        newtrade = TradeRecordByTimes()
+                        newtrade.setDT(v)
+                        newtrade.setContract(k)
+                        newtrade.setCommodity(self.category[k])
+                        newtrade.setPrice(self.data[k][self.bt_mode][i])
+                        newtrade.setType(np.sign(abs(val[i]) - abs(val[i-1])))
+                        newtrade.setVolume(abs(val[i] - val[i-1]))
+                        newtrade.setMultiplier(self.unit[self.category[k]])
+                        newtrade.setDirection(np.sign(val[i] - val[i]))
+                        newtradedaily.append(newtrade)
+
+
+            trd = TradeRecordByDay(dt=v, holdPosDict=holdpos, MkData=mkdata, newTrade=newtradedaily)
+            trd.addNewPositon()
+            print '=========================='
+            print 'getPnl Before', trd.holdPosition
+            pnl_daily[i] = trd.getFinalMK()
+            # print 'asdf', trd.holdPosition
+            print 'getPnl After', trd.holdPosition
+            holdpos = trd.getHoldPosition()
+            # print '==========', v
+            # print pnl_daily[i]
+            # print v, holdpos
+
+        print pnl_daily
+        # print wgtsDict
+
+
+
+
+
+
+    def calc_pnl_old(self, db, collection, contract, multiplier, wgts, tcost_type, tcost):
         """
         根据生成的权重计算盈亏情况，需要的数据，db是数据库，collection是数据表，contract是合约，multiplier是合约乘数。
         然后根据wgts权重向量计算。需要注意的问题是权重向量与时间向量的长度要相同。
@@ -442,7 +701,30 @@ class BacktestSys(object):
         return max_drawdown
 
 if __name__ == '__main__':
-    a = BacktestSys()
+
+
+    ttest1 = TradeRecordByTimes()
+    ttest1.setDT('20181203')
+    ttest1.setContract('TA1901.CZC')
+    ttest1.setPrice(6000)
+    ttest1.setVolume(10)
+    ttest1.setDirection(1)
+    ttest1.setType(1)
+    ttest1.setMultiplier(5)
+    ttest1.setMarginRatio(0.1)
+    ttest1.calMarginOccupation()
+
+    # tdtest = TradeRecordByDay(ttest1)
+
+    print ttest1
+
+    a1 = {'TA1901.CZC': {}}
+    a2 = dict()
+    a = TradeRecordByDay(dt='20181203', holdPosDict=a2, MkData=a2, newTrade=[])
+    a.addNewPositon()
+    print a.getFinalMK()
+    print a.getHoldPosition()
+    # a = BacktestSys()
     # print a.net_value
     # print a.calcSharpe()
     # print a.calcMaxDrawdown()
@@ -450,5 +732,5 @@ if __name__ == '__main__':
     # print a.calcBTResult()
     # plt.plot(a.net_value)
     # plt.show()
-    a.start_date = '20180101'
-    a.prepareData(db='FuturesDailyWind', collection='TA.CZC_Daily', contract='TA.CZC')
+    # a.start_date = '20180101'
+    # a.prepareData(db='FuturesDailyWind', collection='TA.CZC_Daily', contract='TA.CZC')

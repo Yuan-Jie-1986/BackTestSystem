@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdt
 from collections import  OrderedDict
 
+import warnings
+
+warnings.filterwarnings('ignore')
+
 
 class SingleBT(BacktestSys):
 
@@ -51,8 +55,8 @@ class SingleBT(BacktestSys):
 
         self.net_value = nv1['pnl'].values + self.capital
 
+        print '===================组合表现==============='
         self.calcBTResult()
-        print self.rtn_daily
 
         plt.subplot(211)
         plt.plot_date(nv1.index, self.net_value, fmt='-r', label='PnL')
