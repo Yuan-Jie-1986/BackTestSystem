@@ -19,7 +19,7 @@ class test(BacktestSys):
 if __name__ == '__main__':
 
     a = test()
-    b = a.statTrade({'PP.DCE': np.random.randint(-1, 2, 1438),
+    b = a.getNV({'PP.DCE': np.random.randint(-1, 2, 1438),
                      'TA.CZC': np.random.randint(-1, 2, 1438)})
-    # plt.plot(b)
-    # plt.show()
+    plt.plot(b)
+    plt.show()

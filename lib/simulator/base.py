@@ -335,6 +335,7 @@ class BacktestSys(object):
     def statTrade(self, wgtsDict):
         """
         对每笔交易进行统计，wgtsDict是权重字典
+
         """
         # 检查权重向量与时间长度是否一致
         for k, v in wgtsDict.items():
@@ -343,6 +344,9 @@ class BacktestSys(object):
                 raise Exception(u'权重向量与时间向量长度不一致')
         for k, v in wgtsDict.items():
             count = 0
+
+
+
             if self.bt_mode == 'OPEN':
                 # weights = np.zeros(wgts.shape)
                 # weights[1:] = wgts[:-1]
@@ -353,75 +357,97 @@ class BacktestSys(object):
 
                 # if dt.shape != wgts.shape:
                 #     raise Exception('日期向量与权重向量的长度不一致')
-                open_price = self.data[k]['OPEN']
+
+
+                # open_price = self.data[k]['OPEN']
+
+                trade_price = self.data[k][self.bt_mode]
                 trade_record = []
                 unclosed = 0
-
                 for i in range(1, len(v)):
-
-                    if np.isnan(open_price[i]):
+                    if np.isnan(trade_price[i]):
                         continue
-
-                    if v[i] != 0 and (i == 0 or np.isnan(open_price[i-1])):
+                    if v[i] != 0 and (i == 0 or np.isnan(trade_price[i-1])):
                         # 第一天交易就开仓
                         count += 1
                         tr_r = TradeRecordByTrade()
                         tr_r.setCounter(count)
-                        tr_r.setOpen(open_price[i])
-                        ==========编写到这里============
+                        tr_r.setOpen(trade_price[i])
+                        tr_r.setOpenDT(self.dt[i])
+                        tr_r.setVolume(abs(v[i]))
+                        tr_r.setMultiplier(self.unit[self.category[k]])
+                        tr_r.setContract(k)
+                        tr_r.setDirection(np.sign(v[i]))
+                        trade_record.append(tr_r)
 
-                    if abs(v[i]) > abs(v[i-1]) and v[i] * v[i-1] >= 0:
-                        # 新开仓
+
+                    elif abs(v[i]) > abs(v[i-1]) and v[i] * v[i-1] >= 0:
+                        # 新开仓或加仓
                         count += 1
                         tr_r = TradeRecordByTrade()
                         tr_r.setCounter(count)
-                        tr_r.setOpen(open_price[i])
+                        tr_r.setOpen(trade_price[i])
                         tr_r.setOpenDT(self.dt[i])
-                        tr_r.setVolume(abs(weights[i]) - abs(weights[i-1]))
-                        tr_r.setMultiplier(multiplier)
-                        tr_r.setContract(contract)
-                        tr_r.setDirection(np.sign(weights[i]))
+                        tr_r.setVolume(abs(v[i]) - abs(v[i-1]))
+                        tr_r.setMultiplier(self.unit[self.category[k]])
+                        tr_r.setContract(k)
+                        tr_r.setDirection(np.sign(v[i]))
                         trade_record.append(tr_r)
                         unclosed += tr_r.volume
                         unclosed_dir = tr_r.direction
 
-                    elif abs(weights[i]) < abs(weights[i-1]) and weights[i] * weights[i-1] >= 0:
+                    elif abs(v[i]) < abs(v[i-1]) and v[i] * v[i-1] >= 0:
 
                         # 减仓或平仓
-                        j = 1
-                        while unclosed != 0 and - unclosed_dir == np.sign(weights[i] - weights[i-1]):
-                            trade_record[-j].setClose(open_price[i])
-                            trade_record[-j].setCloseDT(dt[i])
+                        try:
+                            if not j:
+                                j = 1
+                        except NameError:
+                            j = 1
+
+                        while unclosed != 0 and - unclosed_dir == np.sign(v[i] - v[i-1]):
+                            trade_record[-j].setClose(trade_price[i])
+                            trade_record[-j].setCloseDT(self.dt[i])
                             trade_record[-j].calcPnL()
-                            unclosed -= trade_record[-j].volume
+                            unclosed = unclosed - trade_record[-j].volume
+                            j += 1
                             if unclosed == 0:
                                 unclosed_dir = None
-                            j += 1
 
-                    elif weights[i] * weights[i-1] < 0:
+
+
+                        if unclosed != 0 and - unclosed_dir == np.sign(v[i] - v[i-1]):
+                            trade_record[-1].setClose(trade_price[i])
+                            trade_record[-1].setCloseDT(self.dt[i])
+                            trade_record[-1].calcPnL()
+                            unclosed = unclosed - abs(v[i] - v[i-1]) trade_record[-1].volume
+                            if unclosed == 0:
+                                unclosed_dir = None
+
+                    elif v[i] * v[i-1] < 0:
 
                         # 平仓后反方向开仓
                         j = 1
-                        while unclosed != 0 and unclosed_dir == np.sign(weights[i-1]):
-                            trade_record[-j].setClose(open_price[i])
-                            trade_record[-j].setCloseDT(dt[i])
+                        while unclosed != 0 and unclosed_dir == np.sign(v[i-1]):
+                            trade_record[-j].setClose(trade_price[i])
+                            trade_record[-j].setCloseDT(self.dt[i])
                             trade_record[-j].calcPnL()
-                            unclosed -= trade_record[-j].volume
+                            unclosed = unclosed - trade_record[-j].volume
                             if unclosed == 0:
                                 unclosed_dir = None
                             j += 1
 
                         count += 1
-                        tr_r = TradeRecord()
+                        tr_r = TradeRecordByTrade()
                         tr_r.setCounter(count)
-                        tr_r.setOpen(open_price[i])
-                        tr_r.setOpenDT(dt[i])
-                        tr_r.setVolume(abs(weights[i]))
-                        tr_r.setMultiplier(multiplier)
-                        tr_r.setContract(contract)
-                        tr_r.setDirection(np.sign(weights[i]))
+                        tr_r.setOpen(trade_price[i])
+                        tr_r.setOpenDT(self.dt[i])
+                        tr_r.setVolume(abs(v[i]))
+                        tr_r.setMultiplier(self.unit[self.category[k]])
+                        tr_r.setContract(k)
+                        tr_r.setDirection(np.sign(v[i]))
                         trade_record.append(tr_r)
-                        unclosed += tr_r.volume
+                        unclosed = unclosed + tr_r.volume
                         unclosed_dir = tr_r.direction
 
             elif self.bt_mode == 'CLOSE':
