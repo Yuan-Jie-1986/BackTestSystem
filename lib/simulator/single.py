@@ -1,6 +1,6 @@
 # coding=utf-8
 
-from base import BacktestSys, TradeRecord
+from base import BacktestSys
 import numpy as np
 import pandas as pd
 import pymongo
@@ -16,50 +16,48 @@ warnings.filterwarnings('ignore')
 class SingleBT(BacktestSys):
 
     def __init__(self):
-        super(SingleBT, self).__init__()
-
+        self.current_file = __file__
+        self.prepare()
 
     def strategy(self):
-        self.start_date = '20160101'
-        self.end_date = '20181001'
-        # self.lookback = 0
-        self.capital = 1e6
-        self.multiplier = 5
-        self.margin_ratio = 0.07
-        self.contract = 'TA809.CZC'
-        self.bt_mode = 'NextOpen'
+        # self.start_date = '20160101'
+        # self.end_date = '20181001'
+        # # self.lookback = 0
+        # self.capital = 1e6
+        # self.multiplier = 5
+        # self.margin_ratio = 0.07
+        # self.contract = 'TA809.CZC'
+        # self.bt_mode = 'NextOpen'
 
-        raw_data = self.prepareData(db='FuturesDailyWind', collection='TA.CZC_Daily', contract=self.contract)
-        dt = raw_data['date']
-        cls = raw_data['CLOSE']
+
+        # raw_data = self.prepareData(db='FuturesDailyWind', collection='TA.CZC_Daily', contract=self.contract)
+        # dt = raw_data['date']
+        cls = self.data['TA809.CZC']['CLOSE']
         ma20 = pd.DataFrame(cls).rolling(window=20).mean().values.flatten()
         ma10 = pd.DataFrame(cls).rolling(window=10).mean().values.flatten()
         con = np.zeros(cls.shape)
         con[cls > ma20] = 1
-
         con[(cls < ma10) * (cls > ma20)] = 0
         con[cls < ma20] = -1
         con[(cls > ma10) * (cls < ma20)] = 0
+        wgtDict = {'TA809.CZC': con}
 
-        return dt, con
+        return wgtDict
+
 
     def stats_total(self):
-        _, wgts = self.strategy()
-        tr1 = self.stat_trade(db='FuturesDailyWind', collection='TA.CZC_Daily', contract=self.contract, multiplier=5,
-                              wgts=wgts)
 
-        trade_pnl = [t.pnl for t in tr1]
+        wgtDict = self.strategy()
+        nv = self.getNV(wgtDict)
+        trade_record = self.statTrade(wgtDict)
+        self.showBTResult(nv)
 
-        nv1 = self.calc_pnl(db='FuturesDailyWind', collection='TA.CZC_Daily', contract=self.contract, multiplier=5,
-                            wgts=wgts)
-
-        self.net_value = nv1['pnl'].values + self.capital
-
-        print '===================组合表现==============='
-        self.calcBTResult()
+        trade_pnl = []
+        for tr in trade_record:
+            trade_pnl.extend([t.pnl for t in trade_record[tr]])
 
         plt.subplot(211)
-        plt.plot_date(nv1.index, self.net_value, fmt='-r', label='PnL')
+        plt.plot_date(self.dt, nv, fmt='-r', label='PnL')
         plt.grid()
         plt.legend()
 

@@ -1,0 +1,30 @@
+
+host: 192.168.1.172
+port: 27017
+db_name: CBNB
+user: yuanjie
+pwd: yuanjie
+
+
+start_date: '20160101'
+end_date: '20181001'
+capital: 1e6
+backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易
+
+
+data:
+  -
+    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+    obj_field: wind_code
+    obj_content: TA809.CZC
+    commodity: TA
+    fields: [OPEN, CLOSE]
+
+trade_unit:
+  TA: 5
+  PP: 5
+
+
+
+
+
