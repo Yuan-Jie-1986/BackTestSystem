@@ -70,9 +70,17 @@ class TradeRecordByTrade(object):
         self.multiplier = None
         self.count = None
         self.pnl = None
+        self.rtn = None
+        self.holding_period = None  # 该交易的交易周期
 
     def calcPnL(self):
         self.pnl = (self.close - self.open) * self.volume * self.multiplier * self.direction
+
+    def calcRtn(self):
+        self.rtn = self.direction * ((self.close / self.open) - 1.)
+
+    def calcHoldingPeriod(self):
+        self.holding_period = (self.close_dt - self.open_dt + timedelta(1)).days
 
     def setOpen(self, val):
         self.open = val
@@ -104,8 +112,10 @@ class TradeRecordByTrade(object):
     def setCounter(self, val):
         self.count = val
 
+
 # 逐日的交易记录
 class TradeRecordByDay(object):
+
     def __init__(self, dt, holdPosDict, MkData, newTrade):
         self.dt = dt  # 日期
         self.newTrade = newTrade  # 当天进行的交易
@@ -130,7 +140,11 @@ class TradeRecordByDay(object):
         for k, v in self.holdPosition.items():
 
             if 'volume' in v:
-                self.daily_pnl = self.daily_pnl + v['volume'] * (self.mkdata[k]['CLOSE'] - self.mkdata[k]['OPEN']) \
+
+                if 'PRECLOSE' not in self.mkdata[k]:
+                    raise Exception(u'请检查传入的市场数据是否正确')
+
+                self.daily_pnl = self.daily_pnl + v['volume'] * (self.mkdata[k]['CLOSE'] - self.mkdata[k]['PRECLOSE']) \
                                  * self.mkdata[k]['multiplier']
             else:
                 self.holdPosition[k]['volume'] = 0
@@ -263,13 +277,18 @@ class BacktestSys(object):
             newtradedaily = []
             mkdata = {}
             for k, val in wgtsDict.items():
+
+                # 如果在当前日期该合约没有开始交易，则直接跳出当前循环，进入下一个合约
+                if np.isnan(self.data[k]['CLOSE'][i]):
+                    continue
+
+                # 需要传入的市场数据
                 mkdata[k] = {'CLOSE': self.data[k]['CLOSE'][i],
                              'OPEN': self.data[k]['OPEN'][i],
                              'multiplier': self.unit[self.category[k]]}
-
-                # print k, mkdata[k]
-                if np.isnan(mkdata[k]['CLOSE']):
-                    continue
+                # 如果不是第一天交易的话，需要前一天的收盘价
+                if i != 0 and ~np.isnan(self.data[k]['CLOSE'][i-1]):
+                    mkdata[k]['PRECLOSE'] = self.data[k]['CLOSE'][i-1]
 
                 if i == 0 or np.isnan(self.data[k]['CLOSE'][i-1]):
                     if val[i] != 0:
@@ -334,15 +353,6 @@ class BacktestSys(object):
     def getNV(self, wgtsDict):
         # 计算总的资金曲线变化情况
         return self.capital + np.cumsum(self.getPnlDaily(wgtsDict))
-
-    # def getPureNV(self, wgtsDict):
-    #     """
-    #     不考虑交易手数，不考虑资金，不考虑杠杆
-    #     不过只适用于不加仓不减仓的策略，权重信号只有1、0、-1。
-    #     """
-    #     for k in wgtsDict:
-    #         initWgts = self.data[k]
-
 
 
     def statTrade(self, wgtsDict):
@@ -421,7 +431,9 @@ class BacktestSys(object):
                     while unclosed != 0 and - unclosed_dir == np.sign(v[i] - v[i-1]):
                         trade_record[k][-j].setClose(trade_price[i])
                         trade_record[k][-j].setCloseDT(self.dt[i])
+                        trade_record[k][-j].calcHoldingPeriod()
                         trade_record[k][-j].calcPnL()
+                        trade_record[k][-j].calcRtn()
                         unclosed -= trade_record[k][-j].volume
                         if unclosed == 0:
                             unclosed_dir = None
@@ -435,7 +447,9 @@ class BacktestSys(object):
                     while unclosed != 0 and unclosed_dir == np.sign(v[i-1]):
                         trade_record[k][-j].setClose(trade_price[i])
                         trade_record[k][-j].setCloseDT(self.dt[i])
+                        trade_record[k][-j].calcHoldingPeriod()
                         trade_record[k][-j].calcPnL()
+                        trade_record[k][-j].calcRtn()
                         unclosed = unclosed - trade_record[k][-j].volume
                         if unclosed == 0:
                             unclosed_dir = None
@@ -530,6 +544,10 @@ class BacktestSys(object):
             loss_times = len([t for t in trade_record[k] if t.pnl < 0])
             buy_pnl = [t.pnl for t in trade_record[k] if t.direction == 1]
             sell_pnl = [t.pnl for t in trade_record[k] if t.direction == -1]
+
+            trade_rtn = [t.rtn for t in trade_record[k]]
+            trade_holding_period = [t.holding_period for t in trade_record[k]]
+
             if buy_times == 0:
                 buy_avg_pnl = np.nan
             else:
@@ -547,8 +565,11 @@ class BacktestSys(object):
             print '亏损次数: %d' % loss_times
             print '做多平均盈亏: %f' % buy_avg_pnl
             print '做空平均盈亏: %f' % sell_avg_pnl
+            print '平均每笔交易收益率(不考虑杠杆): %f' % np.nanmean(trade_rtn)
+            print '平均年化收益率(不考虑杠杆): %f' % (np.nansum(trade_rtn) * 250. / np.nansum(trade_holding_period))
 
         return trade_record
+
 
     # def calc_pnl_old(self, db, collection, contract, multiplier, wgts, tcost_type, tcost):
     #     """
