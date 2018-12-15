@@ -18,7 +18,7 @@ class DataSaving(object):
         self.db.authenticate(usr, pwd)
 
         self.logger = logging.getLogger()
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
 
         formatter = logging.Formatter(fmt='%(asctime)s %(name)s %(filename)s %(funcName)s %(levelname)s %(message)s',
                                       datefmt='%Y-%m-%d %H:%M:%S %a')
@@ -30,16 +30,18 @@ class DataSaving(object):
         self.logger.addHandler(fh)
         self.logger.addHandler(ch)
 
-
-    def rtConn(self):
+    @staticmethod
+    def rtConn():
         TR_ID = '70650e2c881040408f6f95dea2bf3fa13e9f66fe'
         ek.set_app_key(TR_ID)
-        return
+        return None
 
-    def windConn(self):
+    @staticmethod
+    def windConn():
         if not w.isconnected():
             w.start()
-        return
+        return None
+
 
     def getFuturesInfoFromWind(self, collection, cmd, **kwargs):
         self.windConn()
@@ -47,7 +49,7 @@ class DataSaving(object):
         wres = w.wset(tablename='futurecc', startdate='1990-01-01', enddate=datetime.today(), wind_code=cmd)
         wfields = wres.Fields
         unit_total = len(wfields) * len(wres.Data[0])
-        self.logger.info('共抓取了关于%s品种%d个单元格数据' % (cmd, unit_total))
+        self.logger.info(u'共抓取了关于%s品种%d个单元格数据' % (cmd, unit_total))
         res = dict(zip(wfields, wres.Data))
         res.pop('change_limit')
         res.pop('target_margin')
@@ -129,12 +131,15 @@ class DataSaving(object):
         res = w.wsd(contract, 'open, high, low, close, volume, amt, dealnum, oi, settle',
                     beginTime=start_date, endTime=end_date)
 
-        if res.ErrorCode != 0:
+        if res.ErrorCode == -40520007:
+            self.logger.info(u'WIND提取%s到%s的%s数据出现了错误' % (start_date, end_date, contract))
+            return
+        elif res.ErrorCode != 0:
             print res
             raise Exception(u'WIND提取数据出现了错误')
         else:
             unit_total = len(res.Data[0]) * len(res.Fields)
-            self.logger.info('抓取%s合约%s到%s的市场价格数据，共计%d个' % (contract, start_date, end_date, unit_total))
+            self.logger.info(u'抓取%s合约%s到%s的市场价格数据，共计%d个' % (contract, start_date, end_date, unit_total))
             dict_res = dict(zip(res.Fields, res.Data))
             df = pd.DataFrame.from_dict(dict_res)
             df.index = res.Times
@@ -161,7 +166,6 @@ class DataSaving(object):
 
             sys.stdout.write('\n')
             sys.stdout.flush()
-
 
     def getFutureGroupPriceFromWind(self, collection, cmd, **kwargs):
 
@@ -201,7 +205,7 @@ class DataSaving(object):
             start_date = list(searchRes)[0]['date'] + timedelta(1)
             end_date = datetime.today()
         else:
-            start_date = '19900101'
+            start_date = datetime.strptime('19900101', '%Y%m%d')
             end_date = datetime.today()
 
         if start_date > end_date:
@@ -213,7 +217,7 @@ class DataSaving(object):
             raise Exception(u'WIND提取数据出现了错误')
         else:
             unit_total = len(res.Data[0]) * len(res.Fields)
-            self.logger.info('抓取EDB%s数据%s到%s的数据，共计%d个' % (edb_code, start_date, end_date, unit_total))
+            self.logger.info(u'抓取EDB%s数据%s到%s的数据，共计%d个' % (edb_code, start_date, end_date, unit_total))
             dict_res = dict(zip(res.Fields, res.Data))
             df = pd.DataFrame.from_dict(dict_res)
             df.index = res.Times
@@ -223,15 +227,15 @@ class DataSaving(object):
             total = len(df2dict)
             count = 1
             print '抓取%s数据' % edb_code
-
             for di in df2dict:
                 process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
                 sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
                 sys.stdout.flush()
 
-                # 这一句是不是必要啊？
-                # if coll.find_one({'wind_code': edb_code, 'date': datetime.strptime(str(di), '%Y-%m-%d')}):
-                #     continue
+                # 该判断是必要的，因为如果日期是之后的，而数据没有，edb方法会返回最后一个数据
+                if coll.find_one({'wind_code': edb_code, 'date': datetime.strptime(str(di), '%Y-%m-%d')}):
+                    self.logger.info(u'该数据已经存在于数据库中，没有抓取')
+                    continue
 
                 dtemp = df2dict[di].copy()
                 dtemp['date'] = datetime.strptime(str(di), '%Y-%m-%d')
@@ -275,11 +279,11 @@ class DataSaving(object):
         res = ek.get_timeseries(cmd, start_date=start_date, end_date=end_date, fields=fields)
 
         if 'COUNT' in res.columns:
-            self.logger.info('抓取%s%s到%s数据失败，行情交易未结束，请稍后重试' % (cmd, start_date, end_date))
+            self.logger.info(u'抓取%s%s到%s数据失败，行情交易未结束，请稍后重试' % (cmd, start_date, end_date))
             return
 
         unit_total = len(res.values.flatten())
-        self.logger.info('抓取%s%s到%s的数据，共计%d个' % (cmd, start_date, end_date, unit_total))
+        self.logger.info(u'抓取%s%s到%s的数据，共计%d个' % (cmd, start_date, end_date, unit_total))
 
         res['tr_code'] = cmd
         res_dict = res.to_dict(orient='index')
@@ -305,34 +309,37 @@ class DataSaving(object):
 
         return
 
-
     def getDataFromCSV(self, collection, cmd, path, **kwargs):
         """
         从csv文件中导入数据到数据库
         """
         coll = self.db[collection]
-
         df = pd.read_csv(path, index_col=0, parse_dates=True)
+        df = df.astype('float64')  # 将数据转成浮点型，否则存入数据库中会以NumberLong的数据类型
 
         if coll.find_one({'commodity': cmd}):
             searchRes = coll.find({'commodity': cmd}, ['date']).sort('date', pymongo.DESCENDING).limit(1)
             start_date = list(searchRes)[0]['date']
             df = df[df.index > start_date]
+        else:
+            start_date = df.index[0]
+
         if df.empty:
             return
 
         unit_total = len(df.values.flatten())
-        self.logger.info('抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
+        self.logger.info(u'抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
 
-        df.rename(columns={cmd: 'price'}, inplace=True)
+        # 关于编码的问题，如果是中文，需要将unicode转成str
+        df.rename(columns={cmd.encode('utf-8'): 'price'}, inplace=True)
+
         df['commodity'] = cmd
         for k, v in kwargs.items():
             df[k] = v
-
         res_dict = df.to_dict(orient='index')
         total = len(res_dict)
         count = 1
-        print '抓取%s数据' % cmd
+        print u'抓取%s数据' % cmd
         for di in res_dict:
             process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
@@ -340,7 +347,8 @@ class DataSaving(object):
             dtemp = res_dict[di].copy()
             dtemp['date'] = di
             dtemp['update_time'] = datetime.now()
-            # coll.insert_one(dtemp)
+            coll.insert_one(dtemp)
+
             count += 1
 
         sys.stdout.write('\n')

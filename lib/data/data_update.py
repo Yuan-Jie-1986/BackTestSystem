@@ -24,10 +24,9 @@ cols = res['collection']
 error_list = []
 
 for col in cols:
-
-    try:
-        col_content = res[col]
-        for cc in col_content:
+    col_content = res[col]
+    for cc in col_content:
+        try:
             func = cc.pop('func')
             cmd_list = cc.pop('cmd')
             if isinstance(cmd_list, list):
@@ -35,9 +34,9 @@ for col in cols:
                     getattr(ds_obj, func)(col, c, **cc)
             else:
                 getattr(ds_obj, func)(col, cmd_list, **cc)
-    except requests.exceptions.MissingSchema, e:
-        print e.message
-        error_list.append(e)
+        except requests.exceptions.MissingSchema, e:
+            print e.message
+            error_list.append(e)
 
 f.close()
 
