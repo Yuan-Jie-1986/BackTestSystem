@@ -45,29 +45,6 @@ class SingleBT(BacktestSys):
         return wgtDict
 
 
-    def stats_total(self):
-
-        wgtDict = self.strategy()
-        nv = self.getNV(wgtDict)
-        trade_record = self.statTrade(wgtDict)
-        self.showBTResult(nv)
-
-        trade_pnl = []
-        for tr in trade_record:
-            trade_pnl.extend([t.pnl for t in trade_record[tr]])
-
-        plt.subplot(211)
-        plt.plot_date(self.dt, nv, fmt='-r', label='PnL')
-        plt.grid()
-        plt.legend()
-
-        plt.subplot(212)
-        plt.hist(trade_pnl, bins=50, label='DistOfPnL', color='r')
-        plt.legend()
-        plt.grid()
-
-        plt.show()
-
 
 
 

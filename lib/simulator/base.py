@@ -59,19 +59,19 @@ class TradeRecordByTimes(object):
 class TradeRecordByTrade(object):
 
     def __init__(self):
-        self.open = None
+        self.open = np.nan
         self.open_dt = None
-        self.close = None
+        self.close = np.nan
         self.close_dt = None
-        self.volume = None
-        self.direction = None
+        self.volume = np.nan
+        self.direction = np.nan
         self.contract = ''
         self.commodity = ''
-        self.multiplier = None
-        self.count = None
-        self.pnl = None
-        self.rtn = None
-        self.holding_period = None  # 该交易的交易周期
+        self.multiplier = np.nan
+        self.count = np.nan
+        self.pnl = np.nan
+        self.rtn = np.nan
+        self.holding_period = np.nan  # 该交易的交易周期
 
     def calcPnL(self):
         self.pnl = (self.close - self.open) * self.volume * self.multiplier * self.direction
@@ -138,14 +138,21 @@ class TradeRecordByDay(object):
     def getFinalMK(self):
 
         for k, v in self.holdPosition.items():
-
             if 'volume' in v:
 
                 if 'PRECLOSE' not in self.mkdata[k]:
+                    print self.dt, self.mkdata[k]
                     raise Exception(u'请检查传入的市场数据是否正确')
 
-                self.daily_pnl = self.daily_pnl + v['volume'] * (self.mkdata[k]['CLOSE'] - self.mkdata[k]['PRECLOSE']) \
-                                 * self.mkdata[k]['multiplier']
+                new_pnl = v['volume'] * (self.mkdata[k]['CLOSE'] - self.mkdata[k]['PRECLOSE']) * \
+                          self.mkdata[k]['multiplier']
+
+                # 如果某些品种当天没有成交量，那么算出来的结果可能为nan，这时将其调整为0
+                if np.isnan(new_pnl):
+                    new_pnl = 0.
+
+                self.daily_pnl = self.daily_pnl + new_pnl
+
             else:
                 self.holdPosition[k]['volume'] = 0
 
@@ -153,8 +160,14 @@ class TradeRecordByDay(object):
 
                 for nt in v['newTrade']:
 
-                    self.daily_pnl = self.daily_pnl + nt.trade_volume * nt.trade_direction * nt.trade_multiplier * \
-                                     (self.mkdata[k]['CLOSE'] - nt.trade_price)
+                    new_pnl = nt.trade_volume * nt.trade_direction * nt.trade_multiplier * \
+                              (self.mkdata[k]['CLOSE'] - nt.trade_price)
+
+                    # 如果某些品种当天没有成交量，那么算出来的结果可能为nan，这时将其调整为0
+                    if np.isnan(new_pnl):
+                        new_pnl = 0.
+
+                    self.daily_pnl = self.daily_pnl + new_pnl
 
                     self.holdPosition[k]['volume'] = self.holdPosition[k]['volume'] + nt.trade_volume * \
                                                      nt.trade_direction
@@ -203,7 +216,6 @@ class BacktestSys(object):
 
         # 初始资金
         self.capital = np.float(conf['capital'])
-        print self.capital
 
         # 数据库的配置信息
         host = conf['host']
@@ -234,21 +246,36 @@ class BacktestSys(object):
             df_res.drop(columns='_id', inplace=True)
             self.data[d['obj_content']] = df_res.to_dict(orient='list')
 
-        # 将提取的数据按照时间的并集重新生成
+
+        # 将提取的数据按照交易时间的并集重新生成
         date_set = set()
         for _, v in self.data.items():
             date_set = date_set.union(v['date'])
         self.dt = np.array(list(date_set))
         self.dt.sort()
+        # 如果定义了date_type，则去调取交易日期序列
+        if 'date_type' in conf:
+            self.date_type = conf['date_type']
+            table = self.db['DateDB']
+            query_arg = {'exchange': self.date_type, 'date': {'$gte': self.start_dt, '$lte': self.end_dt}}
+            projection_fields = ['date']
+            res = table.find(query_arg, projection_fields)
+            df_res = pd.DataFrame.from_records(res)
+            trading_dt = df_res['date'].values
+            trading_dt = np.array([pd.Timestamp(dt) for dt in trading_dt])
+            dt_con = np.in1d(self.dt, trading_dt)
+            self.dt = self.dt[dt_con]
+
 
         for k, v in self.data.items():
-            con = np.in1d(self.dt, v['date'])
+            con_1 = np.in1d(self.dt, v['date'])
+            con_2 = np.in1d(v['date'], self.dt)
             self.data[k].pop('date')
             for sub_k, sub_v in v.items():
                 if sub_k != 'date':
-                    temp = sub_v
                     self.data[k][sub_k] = np.ones(self.dt.shape) * np.nan
-                    self.data[k][sub_k][con] = temp
+                    self.data[k][sub_k][con_1] = np.array(sub_v)[con_2]
+
 
     def strategy(self):
         raise NotImplementedError
@@ -269,7 +296,7 @@ class BacktestSys(object):
                 res[1:] = wgtsDict[k][:-1]
                 wgtsDict[k] = res
 
-        pnl_daily = np.zeros_like(self.dt)
+        pnl_daily = np.zeros_like(self.dt).astype('float')
 
         holdpos = {}
 
@@ -348,6 +375,7 @@ class BacktestSys(object):
             pnl_daily[i] = trd.getFinalMK()
             holdpos = trd.getHoldPosition()
 
+
         return pnl_daily
 
     def getNV(self, wgtsDict):
@@ -374,18 +402,18 @@ class BacktestSys(object):
 
 
             # if self.bt_mode == 'OPEN':
-                # weights = np.zeros(wgts.shape)
-                # weights[1:] = wgts[:-1]
-                # res = self.prepareData(db=db, collection=collection, contract=contract, field=['date', 'OPEN', 'CLOSE'])
-                # dt = res['date']
-                # open_price = res['OPEN']
-                # close_price = res['CLOSE']
+            # weights = np.zeros(wgts.shape)
+            # weights[1:] = wgts[:-1]
+            # res = self.prepareData(db=db, collection=collection, contract=contract, field=['date', 'OPEN', 'CLOSE'])
+            # dt = res['date']
+            # open_price = res['OPEN']
+            # close_price = res['CLOSE']
 
-                # if dt.shape != wgts.shape:
-                #     raise Exception('日期向量与权重向量的长度不一致')
+            # if dt.shape != wgts.shape:
+            #     raise Exception('日期向量与权重向量的长度不一致')
 
 
-                # open_price = self.data[k]['OPEN']
+            # open_price = self.data[k]['OPEN']
 
             trade_price = self.data[k][self.bt_mode]
 
@@ -544,18 +572,18 @@ class BacktestSys(object):
             loss_times = len([t for t in trade_record[k] if t.pnl < 0])
             buy_pnl = [t.pnl for t in trade_record[k] if t.direction == 1]
             sell_pnl = [t.pnl for t in trade_record[k] if t.direction == -1]
-
             trade_rtn = [t.rtn for t in trade_record[k]]
             trade_holding_period = [t.holding_period for t in trade_record[k]]
+
 
             if buy_times == 0:
                 buy_avg_pnl = np.nan
             else:
-                buy_avg_pnl = sum(buy_pnl) / buy_times
+                buy_avg_pnl = np.nansum(buy_pnl) / buy_times
             if sell_times == 0:
                 sell_avg_pnl = np.nan
             else:
-                sell_avg_pnl = sum(sell_pnl) / sell_times
+                sell_avg_pnl = np.nansum(sell_pnl) / sell_times
 
             print '+++++++++++++++%s合约交易统计++++++++++++++++++++' % k
             print '交易次数: %d' % trade_times
@@ -570,6 +598,28 @@ class BacktestSys(object):
 
         return trade_record
 
+    def statsTotal(self, wgtsDict):
+
+        nv = self.getNV(wgtsDict) / self.capital  # 转换成初始净值为1
+        trade_record = self.statTrade(wgtsDict)
+        self.showBTResult(nv)
+
+        trade_pnl = []
+        for tr in trade_record:
+            trade_pnl.extend([t.pnl for t in trade_record[tr]])
+
+        trade_pnl = np.array(trade_pnl)
+        plt.subplot(211)
+        plt.plot_date(self.dt, nv, fmt='-r', label='PnL')
+        plt.grid()
+        plt.legend()
+
+        plt.subplot(212)
+        plt.hist(trade_pnl[~np.isnan(trade_pnl)], bins=50, label='DistOfPnL', color='r')
+        plt.legend()
+        plt.grid()
+
+        plt.show()
 
     # def calc_pnl_old(self, db, collection, contract, multiplier, wgts, tcost_type, tcost):
     #     """
@@ -724,6 +774,7 @@ class BacktestSys(object):
         print '年化波动率：', vol
         print '夏普比率：', sharpe
         print '最大回撤：', dd
+        print '最终资金净值：', net_value[-1]
 
     # def calcRtn(self, net_value):
     #     rtn_daily = np.ones(len(net_value)) * np.nan
