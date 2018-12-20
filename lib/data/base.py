@@ -57,9 +57,13 @@ class DataSaving(object):
         fu_info = df.to_dict(orient='index')
         for i, v in fu_info.items():
             v.update(kwargs)
+            # 用来解决如果出现NaT的数据，无法传入数据库的问题
+            if pd.isnull(v['last_delivery_month']):
+                v['last_delivery_month'] = None
             if not coll.find_one({'wind_code': v['wind_code']}):
                 v['update_time'] = datetime.now()
                 coll.insert_one(v)
+
         return
 
     def getFuturePriceFromWind(self, collection, contract, alldaytrade, update=1, **kwargs):
@@ -355,6 +359,47 @@ class DataSaving(object):
         sys.stdout.flush()
 
 
+    def getDateSeries(self, collection, cmd, **kwargs):
+        """从WIND导入交易日期时间序列"""
+        self.windConn()
+        coll = self.db[collection]
+        if coll.find_one({'exchange': cmd}):
+            queryArgs = {'exchange': cmd}
+            projectionField = ['date']
+            searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+            start_date = list(searchRes)[0]['date'] + timedelta(1)
+            end_date = datetime.today()
+        else:
+            start_date = datetime.strptime('2000-01-01', '%Y-%m-%d')
+            end_date = datetime.today()
+
+        if start_date > end_date:
+            return
+
+        if cmd == 'SHSE':
+            res = w.tdays(beginTime=start_date, endTime=end_date)
+        else:
+            res = w.tdays(beginTime=start_date, endTime=end_date, TradingCalendar=cmd)
+
+        total = len(res.Data[0])
+        count = 1
+
+        print u'更新交易日期数据'
+        self.logger.info(u'共更新了%s个交易日期数据进入到数据库' % total)
+        for r in res.Data[0]:
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+            res_dict = {'date': r, 'exchange': cmd, 'update_time': datetime.now()}
+            res_dict.update(kwargs)
+            coll.insert_one(res_dict)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+
+
 if __name__ == '__main__':
     # DataSaving().getFuturesPriceAuto(security='M')
     # DataSaving().getFuturesInfoFromWind('BU.SHF')
@@ -366,12 +411,14 @@ if __name__ == '__main__':
     # DataSaving().test('J.DCE')
     # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
     # DataSaving().getFuturePriceFromRT('LCO')
-    a = DataSaving(host='192.168.2.171', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
+    a = DataSaving(host='192.168.1.172', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
                    log_path="E:\\CBNB\\BackTestSystem\\data_saving.log")
     # a.getFuturesInfoFromWind(collection='Information', cmd='BU.SHF')
     # a.getFuturePriceFromWind('FuturesMD', 'TA.CZC', alldaytrade=0)
     # a.getPriceFromRT('FuturesMD', cmd='LCOc1', type='futures')
-    a.getDataFromCSV(collection='SpotMD', cmd='PX', path='E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PX.csv')
+    # a.getDataFromCSV(collection='SpotMD', cmd='PX', path='E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PX.csv')
     # res = w.wset(tablename='futurecc', startdate='2018-01-01', enddate='2018-10-19', wind_code='TA.CZC')
     # print res
+
+    a.getDateSeries(collection='DateDB', cmd='SHSE', frequecy='Daily')
 

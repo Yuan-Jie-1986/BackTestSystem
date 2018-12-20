@@ -11,14 +11,14 @@ pwd: yuanjie
 log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
-#  - FuturesMD
-  - SpotMD
-#  - EDB
 #  - Information
+#  - FuturesMD
+#  - SpotMD
+#  - EDB
 #  - ICEPrice
+  - DateDB
 
 FuturesMD:
-
   -
     source: WIND
     frequency: daily
@@ -44,13 +44,16 @@ FuturesMD:
       - SR.CZC
       - RM.CZC
       - SC.INE
+      - EG.DCE
+      - SP.SHF
+      - FG.CZC
 
   -
     source: WIND
     frequency: daily
     func: getFutureGroupPriceFromWind
     alldaytrade: 1
-    cmd: [B.IPE]
+    cmd: [B.IPE, LB.CME, NG.NYM]
 
   -
     source: ThomsonReuters
@@ -199,31 +202,44 @@ SpotMD:
 EDB:
   - {func: getEDBFromWind, source: WIND, cmd: M0067855, edb_name: "即期汇率:美元兑人民币", unit: null, frequency: Daily}
 
-#Information:
-#  -
-#    func: getFuturesInfoFromWind
-#    source: WIND
-#    cmd:
-#      - L.DCE
-#      - PP.DCE
-#      - I.DCE
-#      - J.DCE
-#      - JM.DCE
-#      - M.DCE
-#      - C.DCE
-#      - RB.SHF
-#      - BU.SHF
-#      - RU.SHF
-#      - NI.SHF
-#      - HC.SHF
-#      - TA.CZC
-#      - MA.CZC
-#      - AP.CZC
-#      - ZC.CZC
-#      - SR.CZC
-#      - RM.CZC
-#      - SC.INE
-#      - B.IPE
+DateDB:
+  -
+    func: getDateSeries
+    cmd: [SHSE]
+    frequency: Daily
+    source: WIND
+
+
+Information:
+  -
+    func: getFuturesInfoFromWind
+    source: WIND
+    cmd:
+      - L.DCE
+      - PP.DCE
+      - I.DCE
+      - J.DCE
+      - JM.DCE
+      - M.DCE
+      - C.DCE
+      - RB.SHF
+      - BU.SHF
+      - RU.SHF
+      - NI.SHF
+      - HC.SHF
+      - TA.CZC
+      - MA.CZC
+      - AP.CZC
+      - ZC.CZC
+      - SR.CZC
+      - RM.CZC
+      - SC.INE
+      - B.IPE
+      - EG.DCE
+      - SP.SHF
+      - LB.CME
+      - NG.NYM
+      - FG.CZC
 
 ICEPrice:
   -
