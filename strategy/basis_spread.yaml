@@ -7,7 +7,7 @@ pwd: yuanjie
 
 start_date: '20130101'
 end_date: '20181001'
-capital: 1e6
+capital: 1e5
 backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
 date_type: SHSE
@@ -171,8 +171,6 @@ data:
     commodity: BU
     fields: [price]
 
-
-
 trade_unit:
   TA: 5
   PP: 5
@@ -186,6 +184,20 @@ trade_unit:
   ZC: 100
   BU: 10
   V: 5
+
+margin_ratio:
+  TA.CZC: 0.07
+  PP.DCE: 0.07
+  L.DCE: 0.07
+  RB.SHF: 0.07
+  HC.SHF: 0.07
+  J.DCE: 0.07
+  JM.DCE: 0.07
+  I.DCE: 0.07
+  MA.CZC: 0.07
+  ZC.CZC: 0.07
+  BU.SHF: 0.07
+  V.DCE: 0.07
 
 
 
