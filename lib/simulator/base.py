@@ -23,6 +23,7 @@ class TradeRecordByTimes(object):
         self.trade_margin_ratio = None  # 保证金比率
         self.trade_margin_occupation = None  # 保证金占用
         self.trade_type = None  # 交易类型，是平仓还是开仓。1为开仓，-1为平仓
+        self.trade_commodity_value = None  # 合约价值，一定是正值
 
     def setDT(self, val):
         self.dt = val
@@ -54,6 +55,9 @@ class TradeRecordByTimes(object):
     def calMarginOccupation(self):
         self.trade_margin_occupation = self.trade_price * self.trade_multiplier * self.trade_margin_ratio * \
                                        self.trade_volume
+
+    def calValue(self):
+        self.trade_commodity_value = self.trade_price * self.trade_multiplier * abs(self.trade_volume)
 
 # 逐笔的交易记录
 class TradeRecordByTrade(object):
@@ -121,7 +125,9 @@ class TradeRecordByDay(object):
         self.newTrade = newTrade  # 当天进行的交易
         self.mkdata = MkData  # 合约市场数据
         self.holdPosition = holdPosDict  # 之前已有的持仓, 字典中的volume的值是有正有负，正值代表持多仓，负值为空仓
-        self.daily_pnl = 0
+        self.daily_pnl = 0  # 每日的pnl
+        self.daily_margin_occ = 0  # 每日的保证金占用情况
+        self.daily_commodity_value = 0  # 每日的合约价值
 
     def addNewPositon(self):
 
@@ -151,7 +157,7 @@ class TradeRecordByDay(object):
                 if np.isnan(new_pnl):
                     new_pnl = 0.
 
-                self.daily_pnl = self.daily_pnl + new_pnl
+                self.daily_pnl += new_pnl
 
             else:
                 self.holdPosition[k]['volume'] = 0
@@ -177,7 +183,16 @@ class TradeRecordByDay(object):
             if self.holdPosition[k]['volume'] == 0:
                 del self.holdPosition[k]
 
-        return self.daily_pnl
+            else:
+                new_margin_occ = abs(self.holdPosition[k]['volume']) * self.mkdata[k]['CLOSE'] * \
+                                 self.mkdata[k]['multiplier'] * self.mkdata[k]['margin_ratio']
+                new_commodity_value = abs(self.holdPosition[k]['volume']) * self.mkdata[k]['CLOSE'] * \
+                                      self.mkdata[k]['multiplier']
+
+                self.daily_margin_occ += new_margin_occ
+                self.daily_commodity_value += new_commodity_value
+
+        return self.daily_pnl, self.daily_margin_occ, self.daily_commodity_value
 
     def getHoldPosition(self):
         return self.holdPosition
@@ -235,6 +250,7 @@ class BacktestSys(object):
         self.data = {}
         self.unit = conf['trade_unit']
         self.bt_mode = conf['backtest_mode']
+        self.margin_ratio = conf['margin_ratio']
         self.category = {}
         for d in raw_data:
             self.category[d['obj_content']] = d['commodity']
@@ -276,12 +292,13 @@ class BacktestSys(object):
                     self.data[k][sub_k] = np.ones(self.dt.shape) * np.nan
                     self.data[k][sub_k][con_1] = np.array(sub_v)[con_2]
 
+        print self.margin_ratio
 
     def strategy(self):
         raise NotImplementedError
 
     def getPnlDaily(self, wgtsDict):
-        # 根据权重计算每日的pnl
+        # 根据权重计算每日的pnl，每日的保证金占用，每日的合约价值
         # wgtsDict是权重字典，key是合约名，value是该合约权重
         # 检查权重向量与时间向量长度是否一致
         for k, v in wgtsDict.items():
@@ -297,6 +314,8 @@ class BacktestSys(object):
                 wgtsDict[k] = res
 
         pnl_daily = np.zeros_like(self.dt).astype('float')
+        margin_occ_daily = np.zeros_like(self.dt).astype('float')
+        value_daily = np.zeros_like(self.dt).astype('float')
 
         holdpos = {}
 
@@ -312,7 +331,9 @@ class BacktestSys(object):
                 # 需要传入的市场数据
                 mkdata[k] = {'CLOSE': self.data[k]['CLOSE'][i],
                              'OPEN': self.data[k]['OPEN'][i],
-                             'multiplier': self.unit[self.category[k]]}
+                             'multiplier': self.unit[self.category[k]],
+                             'margin_ratio': self.margin_ratio[k]}
+
                 # 如果不是第一天交易的话，需要前一天的收盘价
                 if i != 0 and ~np.isnan(self.data[k]['CLOSE'][i-1]):
                     mkdata[k]['PRECLOSE'] = self.data[k]['CLOSE'][i-1]
@@ -372,15 +393,14 @@ class BacktestSys(object):
 
             trd = TradeRecordByDay(dt=v, holdPosDict=holdpos, MkData=mkdata, newTrade=newtradedaily)
             trd.addNewPositon()
-            pnl_daily[i] = trd.getFinalMK()
+            pnl_daily[i], margin_occ_daily[i], value_daily[i] = trd.getFinalMK()
             holdpos = trd.getHoldPosition()
 
-
-        return pnl_daily
+        return pnl_daily, margin_occ_daily, value_daily
 
     def getNV(self, wgtsDict):
         # 计算总的资金曲线变化情况
-        return self.capital + np.cumsum(self.getPnlDaily(wgtsDict))
+        return self.capital + np.cumsum(self.getPnlDaily(wgtsDict)[0])
 
 
     def statTrade(self, wgtsDict):
@@ -600,7 +620,10 @@ class BacktestSys(object):
 
     def statsTotal(self, wgtsDict):
 
-        nv = self.getNV(wgtsDict) / self.capital  # 转换成初始净值为1
+        pnl, margin_occ, value = self.getPnlDaily(wgtsDict)
+        nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
+        margin_occ_ratio = margin_occ / self.capital
+        leverage = value / self.capital
         trade_record = self.statTrade(wgtsDict)
         self.showBTResult(nv)
 
@@ -609,15 +632,26 @@ class BacktestSys(object):
             trade_pnl.extend([t.pnl for t in trade_record[tr]])
 
         trade_pnl = np.array(trade_pnl)
-        plt.subplot(211)
+        plt.subplot(411)
         plt.plot_date(self.dt, nv, fmt='-r', label='PnL')
         plt.grid()
         plt.legend()
 
-        plt.subplot(212)
+        plt.subplot(412)
         plt.hist(trade_pnl[~np.isnan(trade_pnl)], bins=50, label='DistOfPnL', color='r')
         plt.legend()
         plt.grid()
+
+        plt.subplot(413)
+        plt.plot_date(self.dt, margin_occ_ratio, fmt='-r', label='margin_occupation_ratio')
+        plt.grid()
+        plt.legend()
+
+
+        plt.subplot(414)
+        plt.plot_date(self.dt, leverage, fmt='-r', label='leverage')
+        plt.grid()
+        plt.legend()
 
         plt.show()
 
