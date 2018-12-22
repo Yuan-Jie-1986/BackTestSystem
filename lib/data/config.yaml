@@ -12,10 +12,10 @@ log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
 #  - Information
-#  - FuturesMD
-#  - SpotMD
-#  - EDB
-#  - ICEPrice
+  - FuturesMD
+  - SpotMD
+  - EDB
+  - ICEPrice
   - DateDB
 
 FuturesMD:
@@ -47,6 +47,11 @@ FuturesMD:
       - EG.DCE
       - SP.SHF
       - FG.CZC
+      - V.DCE
+      - CU.SHF
+      - AL.SHF
+      - AG.SHF
+      - FU.SHF
 
   -
     source: WIND
@@ -240,6 +245,11 @@ Information:
       - LB.CME
       - NG.NYM
       - FG.CZC
+      - V.DCE
+      - CU.SHF
+      - AL.SHF
+      - AG.SHF
+      - FU.SHF
 
 ICEPrice:
   -
