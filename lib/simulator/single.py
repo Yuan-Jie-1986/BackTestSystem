@@ -20,18 +20,7 @@ class SingleBT(BacktestSys):
         self.prepare()
 
     def strategy(self):
-        # self.start_date = '20160101'
-        # self.end_date = '20181001'
-        # # self.lookback = 0
-        # self.capital = 1e6
-        # self.multiplier = 5
-        # self.margin_ratio = 0.07
-        # self.contract = 'TA809.CZC'
-        # self.bt_mode = 'NextOpen'
 
-
-        # raw_data = self.prepareData(db='FuturesDailyWind', collection='TA.CZC_Daily', contract=self.contract)
-        # dt = raw_data['date']
         cls = self.data['TA809.CZC']['CLOSE']
         ma20 = pd.DataFrame(cls).rolling(window=20).mean().values.flatten()
         ma10 = pd.DataFrame(cls).rolling(window=10).mean().values.flatten()
@@ -42,7 +31,12 @@ class SingleBT(BacktestSys):
         con[(cls > ma10) * (cls < ma20)] = 0
         wgtDict = {'TA809.CZC': con}
 
-        return wgtDict
+        # 该步骤一样要有
+        wgtDict = self.wgtsProcess(wgtDict)
+
+        self.statsTotal(wgtDict)
+
+
 
 
 
@@ -187,7 +181,7 @@ if __name__ == '__main__':
     # b = a.prepareData(db='EDBWind', collection='FX', contract='M0067855')
     # _, con = a.strategy()
 
-    a.stats_total()
+    a.strategy()
 
     # tr = a.stat_trade(db='FuturesDailyWind', collection='TA.CZC_Daily', contract='TA809.CZC', multiplier=5, wgts=con)
     # print tr

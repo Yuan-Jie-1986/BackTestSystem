@@ -1,5 +1,5 @@
 
-host: 192.168.1.172
+host: localhost
 port: 27017
 db_name: CBNB
 user: yuanjie
@@ -24,7 +24,8 @@ trade_unit:
   TA: 5
   PP: 5
 
-
+margin_ratio:
+  TA809.CZC: 0.07
 
 
 

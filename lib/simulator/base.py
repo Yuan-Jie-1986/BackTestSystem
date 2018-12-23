@@ -292,27 +292,27 @@ class BacktestSys(object):
                     self.data[k][sub_k] = np.ones(self.dt.shape) * np.nan
                     self.data[k][sub_k][con_1] = np.array(sub_v)[con_2]
 
-        print self.margin_ratio
-
     def strategy(self):
         raise NotImplementedError
 
-    def getPnlDaily(self, wgtsDict):
-        # 根据权重计算每日的pnl，每日的保证金占用，每日的合约价值
-        # wgtsDict是权重字典，key是合约名，value是该合约权重
-        # 检查权重向量与时间向量长度是否一致
-        for k, v in wgtsDict.items():
-            if len(v) != len(self.dt):
-                print u'%s的权重向量与时间向量长度不一致' % k
-                raise Exception(u'权重向量与时间向量长度不一致')
-
+    def wgtsProcess(self, wgtsDict):
         if self.bt_mode == 'OPEN':
             # 如果是开盘价进行交易，则将初始权重向后平移一位
             for k in wgtsDict:
                 res = np.zeros_like(wgtsDict[k])
                 res[1:] = wgtsDict[k][:-1]
                 wgtsDict[k] = res
+        return wgtsDict
 
+    def getPnlDaily(self, wgtsDict):
+        # 根据权重计算每日的pnl，每日的保证金占用，每日的合约价值
+        # wgtsDict是权重字典，key是合约名，value是该合约权重
+        # 检查权重向量与时间向量长度是否一致
+        # 需要注意的问题是传入的参数如果是字典，那么可能会改变该字典
+        for k, v in wgtsDict.items():
+            if len(v) != len(self.dt):
+                print u'%s的权重向量与时间向量长度不一致' % k
+                raise Exception(u'权重向量与时间向量长度不一致')
         pnl_daily = np.zeros_like(self.dt).astype('float')
         margin_occ_daily = np.zeros_like(self.dt).astype('float')
         value_daily = np.zeros_like(self.dt).astype('float')
@@ -402,7 +402,6 @@ class BacktestSys(object):
         # 计算总的资金曲线变化情况
         return self.capital + np.cumsum(self.getPnlDaily(wgtsDict)[0])
 
-
     def statTrade(self, wgtsDict):
         """
         对每笔交易进行统计，wgtsDict是权重字典
@@ -414,26 +413,13 @@ class BacktestSys(object):
                 print u'%s的权重向量与时间向量长度不一致' % k
                 raise Exception(u'权重向量与时间向量长度不一致')
 
+        total_pnl = 0
+
         trade_record = {}
         for k, v in wgtsDict.items():
 
             trade_record[k] = []
             count = 0
-
-
-            # if self.bt_mode == 'OPEN':
-            # weights = np.zeros(wgts.shape)
-            # weights[1:] = wgts[:-1]
-            # res = self.prepareData(db=db, collection=collection, contract=contract, field=['date', 'OPEN', 'CLOSE'])
-            # dt = res['date']
-            # open_price = res['OPEN']
-            # close_price = res['CLOSE']
-
-            # if dt.shape != wgts.shape:
-            #     raise Exception('日期向量与权重向量的长度不一致')
-
-
-            # open_price = self.data[k]['OPEN']
 
             trade_price = self.data[k][self.bt_mode]
 
@@ -516,75 +502,6 @@ class BacktestSys(object):
                     unclosed = unclosed + tr_r.volume
                     unclosed_dir = tr_r.direction
 
-            # elif self.bt_mode == 'CLOSE':
-            #     weights = wgts.copy()
-            #     res = self.prepareData(db=db, collection=collection, contract=contract, field=['date', 'CLOSE'])
-            #     dt = res['date']
-            #     close_price = res['CLOSE']
-            #
-            #     if dt.shape != wgts.shape:
-            #         raise Exception('日期向量与权重向量的长度不一致')
-            #
-            #     trade_record = []
-            #     unclosed = 0
-            #
-            #     for i in range(1, len(weights)):
-            #
-            #         if abs(weights[i]) > abs(weights[i-1]) and weights[i] * weights[i-1] >= 0:
-            #
-            #             # 新开仓
-            #             count += 1
-            #             tr_r = TradeRecord()
-            #             tr_r.setCounter(count)
-            #             tr_r.setOpen(close_price[i])
-            #             tr_r.setOpenDT(dt[i])
-            #             tr_r.setVolume(abs(weights[i]) - abs(weights[i-1]))
-            #             tr_r.setMultiplier(multiplier)
-            #             tr_r.setContract(contract)
-            #             tr_r.setDirection(np.sign(weights[i]))
-            #             trade_record.append(tr_r)
-            #             unclosed += tr_r.volume
-            #             unclosed_dir = tr_r.direction
-            #
-            #         elif abs(weights[i]) < abs(weights[i-1]) and weights[i] * weights[i-1] >= 0:
-            #
-            #             # 减仓或平仓
-            #             j = 1
-            #             while unclosed != 0 and - unclosed_dir == np.sign(weights[i] - weights[i-1]):
-            #                 trade_record[-j].setClose(close_price[i])
-            #                 trade_record[-j].setCloseDT(dt[i])
-            #                 trade_record[-j].calcPnL()
-            #                 unclosed -= trade_record[-j].volume
-            #                 if unclosed == 0:
-            #                     unclosed_dir = None
-            #                 j += 1
-            #
-            #         elif weights[i] * weights[i-1] < 0:
-            #
-            #             # 平仓后反方向开仓
-            #             j = 1
-            #             while unclosed != 0 and unclosed_dir == np.sign(weights[i-1]):
-            #                 trade_record[-j].setClose(close_price[i])
-            #                 trade_record[-j].setCloseDT(dt[i])
-            #                 trade_record[-j].calcPnL()
-            #                 unclosed -= trade_record[-j].volume
-            #                 if unclosed == 0:
-            #                     unclosed_dir = None
-            #                 j += 1
-            #
-            #             count += 1
-            #             tr_r = TradeRecord()
-            #             tr_r.setCounter(count)
-            #             tr_r.setOpen(close_price[i])
-            #             tr_r.setOpenDT(dt[i])
-            #             tr_r.setVolume(abs(weights[i]))
-            #             tr_r.setMultiplier(multiplier)
-            #             tr_r.setContract(contract)
-            #             tr_r.setDirection(np.sign(weights[i]))
-            #             trade_record.append(tr_r)
-            #             unclosed += tr_r.volume
-            #             unclosed_dir = tr_r.direction
-
             trade_times = len(trade_record[k])
             buy_times = len([t for t in trade_record[k] if t.direction == 1])
             sell_times = len([t for t in trade_record[k] if t.direction == -1])
@@ -594,7 +511,6 @@ class BacktestSys(object):
             sell_pnl = [t.pnl for t in trade_record[k] if t.direction == -1]
             trade_rtn = [t.rtn for t in trade_record[k]]
             trade_holding_period = [t.holding_period for t in trade_record[k]]
-
 
             if buy_times == 0:
                 buy_avg_pnl = np.nan
@@ -616,14 +532,18 @@ class BacktestSys(object):
             print '平均每笔交易收益率(不考虑杠杆): %f' % np.nanmean(trade_rtn)
             print '平均年化收益率(不考虑杠杆): %f' % (np.nansum(trade_rtn) * 250. / np.nansum(trade_holding_period))
 
+            total_pnl_k = np.nansum([t.pnl for t in trade_record[k]])
+            total_pnl += total_pnl_k
+        print total_pnl
         return trade_record
 
     def statsTotal(self, wgtsDict):
+        # 需要注意的一个问题是，如果在getPnlDaily函数中改变了wgtsDict，那么之后所用的wgtsDict就都改变了
 
         pnl, margin_occ, value = self.getPnlDaily(wgtsDict)
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
-        margin_occ_ratio = margin_occ / self.capital
-        leverage = value / self.capital
+        margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
+        leverage = value / (self.capital + np.cumsum(pnl))
         trade_record = self.statTrade(wgtsDict)
         self.showBTResult(nv)
 
@@ -655,165 +575,14 @@ class BacktestSys(object):
 
         plt.show()
 
-    # def calc_pnl_old(self, db, collection, contract, multiplier, wgts, tcost_type, tcost):
-    #     """
-    #     根据生成的权重计算盈亏情况，需要的数据，db是数据库，collection是数据表，contract是合约，multiplier是合约乘数。
-    #     然后根据wgts权重向量计算。需要注意的问题是权重向量与时间向量的长度要相同。
-    #     tcost是交易成本，期货交易成本有两种，一种是根据成交金额的百分比，另一种是每手交易收取固定费用。tcost_type=1时，为不固定费
-    #     用，tcost是百分比。tcost_type=2时，为固定费用，tcost是每笔收取的费用。 tcost_type=0时，不计手续费
-    #     """
-    #
-    #     if self.bt_mode == 'NextOpen':
-    #         weights = np.zeros(wgts.shape)
-    #         weights[1:] = wgts[:-1]
-    #         res = self.prepareData(db=db, collection=collection, contract=contract, field=['date', 'OPEN', 'CLOSE'])
-    #         dt = res['date']
-    #         open_price = res['OPEN']
-    #         close_price = res['CLOSE']
-    #
-    #         if dt.shape != wgts.shape:
-    #             raise Exception('日期向量与权重向量的长度不一致')
-    #
-    #         pnl = np.zeros_like(wgts)
-    #
-    #         for i in range(1, len(weights)):
-    #
-    #             # 当天增减仓
-    #             if weights[i] * weights[i-1] >= 0:
-    #                 delta_wgt = weights[i] - weights[i-1]
-    #
-    #                 if tcost_type == 1:
-    #                     trade_cost = open_price[i] * abs(delta_wgt) * multiplier * tcost
-    #                 elif tcost_type == 2:
-    #                     trade_cost = abs(delta_wgt) * tcost
-    #                 elif tcost_type == 0:
-    #                     trade_cost = 0
-    #
-    #
-    #                 pnl[i] = pnl[i-1] + (close_price[i] - open_price[i]) * delta_wgt * multiplier + \
-    #                          (close_price[i] - close_price[i-1]) * weights[i-1] * multiplier - trade_cost
-    #             # 当天改变持仓方向
-    #             elif weights[i] * weights[i-1] < 0:
-    #
-    #                 if tcost_type == 1:
-    #                     trade_cost = open_price[i] * (abs(weights[i]) + abs(weights[i-1])) * multiplier * tcost
-    #                 elif tcost_type == 2:
-    #                     trade_cost = (abs(weights[i]) + abs(weights[i-1])) * tcost
-    #                 elif tcost_type == 0:
-    #                     trade_cost = 0
-    #
-    #                 pnl[i] = pnl[i-1] + (close_price[i] - open_price[i]) * weights[i] * multiplier + \
-    #                          (open_price[i] - close_price[i-1]) * weights[i-1] * multiplier - trade_cost
-    #
-    #     elif self.bt_mode == 'CLOSE':
-    #         weights = wgts.copy()
-    #         res = self.prepareData(db=db, collection=collection, contract=contract, field=['date', 'CLOSE'])
-    #         dt = res['date']
-    #         close_price = res['CLOSE']
-    #
-    #         if dt.shape != wgts.shape:
-    #             raise Exception('日期向量与权重向量的长度不一致')
-    #
-    #         pnl = np.zeros_like(wgts)
-    #
-    #         for i in range(1, len(weights)):
-    #
-    #             delta_wgt = weights[i] - weights[i-1]
-    #
-    #             if tcost_type == 1:
-    #                 trade_cost = close_price[i] * abs(delta_wgt) * multiplier * tcost
-    #             elif tcost_type == 2:
-    #                 trade_cost = abs(delta_wgt) * tcost
-    #             elif tcost_type == 0:
-    #                 trade_cost = 0
-    #
-    #             pnl[i] = pnl[i-1] + (close_price[i] - close_price[i-1]) * weights[i-1] * multiplier - trade_cost
-    #
-    #     pnl_df = pd.DataFrame({'pnl': pnl}, index=dt)
-    #     return pnl_df
-    #
-    #
-    # def order_combination(self, trade_list):
-    #     """进行订单合并，根据交易的合约和时间进行，暂时先不需要"""
-    #     trade_dict = {}
-    #     for t in trade_list:
-    #         if t.contract not in trade_dict:
-    #             trade_dict[t.contract] = {}
-    #         if t.open_dt not in trade_dict[t.contract]:
-    #             trade_dict[t.contract][t.open_dt] = t.volume * t.direction
-    #         else:
-    #             trade_dict[t.contract][t.open_dt] = trade_dict[t.contract][t.open_dt] + t.volume * t.direction
-    #
-    #         if t.close_dt not in trade_dict[t.contract]:
-    #             trade_dict[t.contract][t.close_dt] = t.volume * t.direction * (-1)
-    #         else:
-    #             trade_dict[t.contract][t.close_dt] = trade_dict[t.contract][t.close_dt] - t.volume * t.direction
-    #
-    #     trade_comb = sorted(trade_dict.items(), key=lambda x: x[0][0], reverse=False)
-    #
-    # def prepareData(self, db, collection, contract, field=['date', 'CLOSE']):
-    #
-    #     col = self.useDBCollections(db=db, collection=collection)
-    #
-    #     if not self.start_date:
-    #         self.start_date = datetime.strptime('20000101', '%Y%m%d')
-    #     if not self.end_date:
-    #         self.end_date = datetime.today()
-    #     # if not self.lookback:
-    #     #     self.lookback = 0
-    #
-    #     if isinstance(self.start_date, str):
-    #         self.start_date = datetime.strptime(self.start_date, '%Y%m%d')
-    #     if isinstance(self.end_date, str):
-    #         self.end_date = datetime.strptime(self.end_date, '%Y%m%d')
-    #
-    #     # queryArgs = {'wind_code': contract}
-    #     # projectionField = ['date']
-    #     #
-    #     # res = col.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING).limit(1)
-    #     #
-    #     # contract_init = list(res)[0]['date']
-    #
-    #     # if self.start_date < contract_init:
-    #     #     self.init_date = contract_init
-    #     # elif self.lookback == 0:
-    #     #     self.init_date = self.start_date
-    #     # else:
-    #     #     queryArgs = {'wind_code': contract,
-    #     #                  'date': {'$lt': self.start_date}}
-    #     #     projectionField = ['date']
-    #     #     res = col.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(self.lookback)
-    #     #     self.init_date = list(res)[-1]['date']
-    #
-    #     queryArgs = {'wind_code': contract,
-    #                  'date': {'$gte': self.start_date, '$lte': self.end_date}}
-    #     projectionField = field
-    #     res = col.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
-    #     preData = dict()
-    #
-    #     for f in projectionField:
-    #         preData[f] = []
-    #
-    #     for r in res:
-    #         for f in projectionField:
-    #             preData[f].append(r[f])
-    #
-    #     for f in projectionField:
-    #         preData[f] = np.array(preData[f])
-    #     return preData
-
     def showBTResult(self, net_value):
         rtn, vol, sharpe, dd = self.calcIndicator(net_value)
+        print '==============回测结果==============='
         print '年化收益率：', rtn
         print '年化波动率：', vol
         print '夏普比率：', sharpe
         print '最大回撤：', dd
         print '最终资金净值：', net_value[-1]
-
-    # def calcRtn(self, net_value):
-    #     rtn_daily = np.ones(len(net_value)) * np.nan
-    #     rtn_daily[1:] = net_value[1:] / net_value[:-1] - 1.
-    #     return rtn_daily
 
     def calcIndicator(self, net_value):
         rtn_daily = np.ones(len(net_value)) * np.nan
@@ -821,25 +590,12 @@ class BacktestSys(object):
         annual_rtn = np.nanmean(rtn_daily) * 250
         annual_std = np.nanstd(rtn_daily) * np.sqrt(250)
         sharpe = annual_rtn / annual_std
-
+        # 最大回撤
         index_end = np.argmax(np.maximum.accumulate(net_value) - net_value)
         index_start = np.argmax(net_value[:index_end])
         max_drawdown = net_value[index_end] - net_value[index_start]
 
         return annual_rtn, annual_std, sharpe, max_drawdown
-
-    # def calcAnnualSTD(self):
-    #     return np.nanstd(self.rtn_daily) * np.sqrt(250)
-    #
-    # def calcSharpe(self):
-    #     return self.calcAnnualRTN() / self.calcAnnualSTD()
-
-    # def calcMaxDrawdown(self, net_value):
-    #     index_end = np.argmax(np.maximum.accumulate(net_value) - net_value)
-    #     index_start = np.argmax(net_value[:index_end])
-    #     max_drawdown = net_value[index_end] - net_value[index_start]
-    #     return max_drawdown
-
 
 
 
