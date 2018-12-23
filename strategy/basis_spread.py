@@ -43,6 +43,8 @@ class BasisSpread(BacktestSys):
             del futures_contract
 
         for i in np.arange(len(self.dt)):
+
+            # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
             bsr_daily = []
             for k in basis_spread_ratio:
                 bsr_daily.append(basis_spread_ratio[k][i])
@@ -56,11 +58,35 @@ class BasisSpread(BacktestSys):
             low_point = bsr_series[num_selection-1]
             high_point = bsr_series[-num_selection]
 
+            # 计算得到各合约的20日波动
+            vol_daily = {}
+            wgt_daily = {}
+            n = max(0, i - 250)
+            for k in basis_spread_ratio:
+                vol_daily[k] = np.nanstd(self.data[k]['CLOSE'][n:i]) * self.unit[self.category[k]]
+                # vol_daily[k] = self.data[k]['CLOSE'][i] * self.unit[self.category[k]]
+                wgt_daily[k] = 1. / vol_daily[k]
+                # if np.isinf(wgt_daily[k]):
+                #     print wgt_daily[k], k, vol_daily[k]
+
+            wgt_min = np.nanmin(wgt_daily.values())
+            for k in wgt_daily:
+                wgt_daily[k] = wgt_daily[k] / wgt_min
+                if ~np.isfinite(wgt_daily[k]):
+                    wgt_daily[k] = 0.
+                # if np.isinf(wgt_daily[k]):
+                #     wgt_daily[k] = 1.
+
+            print wgt_daily
+
+
             for k in basis_spread_ratio:
                 if basis_spread_ratio[k][i] <= low_point:
-                    wgtsDict[k][i] = -1.
+                    wgtsDict[k][i] = - int(5. * wgt_daily[k])
                 elif basis_spread_ratio[k][i] >= high_point:
-                    wgtsDict[k][i] = 1.
+                    wgtsDict[k][i] = int(5. * wgt_daily[k])
+
+        wgtsDict = self.wgtsProcess(wgtsDict)
 
         self.statsTotal(wgtsDict)
 
