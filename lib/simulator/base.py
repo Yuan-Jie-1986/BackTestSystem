@@ -282,7 +282,6 @@ class BacktestSys(object):
             dt_con = np.in1d(self.dt, trading_dt)
             self.dt = self.dt[dt_con]
 
-
         for k, v in self.data.items():
             con_1 = np.in1d(self.dt, v['date'])
             con_2 = np.in1d(v['date'], self.dt)
@@ -416,16 +415,16 @@ class BacktestSys(object):
         total_pnl = 0
 
         trade_record = {}
+        uncovered_record = {}
         for k, v in wgtsDict.items():
 
             trade_record[k] = []
+            uncovered_record[k] = []
             count = 0
-
             trade_price = self.data[k][self.bt_mode]
 
-            unclosed = 0
-            for i in range(1, len(v)):
-                if np.isnan(trade_price[i]):
+            for i in range(len(v)):
+                if np.isnan(trade_price[i]) or (i == 0 and v[i] == 0):
                     continue
                 if v[i] != 0 and (i == 0 or np.isnan(trade_price[i-1])):
                     # 第一天交易就开仓
@@ -439,9 +438,7 @@ class BacktestSys(object):
                     tr_r.setContract(k)
                     tr_r.setDirection(np.sign(v[i]))
                     trade_record[k].append(tr_r)
-                    unclosed += tr_r.volume
-                    unclosed_dir = tr_r.direction
-
+                    uncovered_record[k].append(tr_r)
 
                 elif abs(v[i]) > abs(v[i-1]) and v[i] * v[i-1] >= 0:
                     # 新开仓或加仓
@@ -455,39 +452,115 @@ class BacktestSys(object):
                     tr_r.setContract(k)
                     tr_r.setDirection(np.sign(v[i]))
                     trade_record[k].append(tr_r)
-                    unclosed += tr_r.volume
-                    unclosed_dir = tr_r.direction
+                    uncovered_record[k].append(tr_r.count)
 
                 elif abs(v[i]) < abs(v[i-1]) and v[i] * v[i-1] >= 0:
 
-                    # 减仓或平仓（目前应该只支持一次平仓，不能计算分批减仓）
-                    j = 1
-                    while unclosed != 0 and - unclosed_dir == np.sign(v[i] - v[i-1]):
-                        trade_record[k][-j].setClose(trade_price[i])
-                        trade_record[k][-j].setCloseDT(self.dt[i])
-                        trade_record[k][-j].calcHoldingPeriod()
-                        trade_record[k][-j].calcPnL()
-                        trade_record[k][-j].calcRtn()
-                        unclosed -= trade_record[k][-j].volume
-                        if unclosed == 0:
-                            unclosed_dir = None
-                        j += 1
+                    # 减仓或平仓
+                    needed_covered = abs(v[i - 1]) - abs(v[i])  # 需要减仓的数量
+                    uncovered_record_sub = []
+                    uncovered_record_add = []
+                    for j in np.arange(1, len(uncovered_record[k]) + 1):
+                        for m in np.arange(1, len(trade_record[k]) + 1):
+                            if uncovered_record[k][-j] == trade_record[k][-m].count:
+                                # 如果需要减仓的数量小于最近的开仓的数量
+                                if needed_covered < trade_record[k][-m].volume:
+                                    uncovered_vol = trade_record[k][-m].volume - needed_covered
+                                    trade_record[k][-m].setVolume(needed_covered)
+                                    trade_record[k][-m].setClose(trade_price[i])
+                                    trade_record[k][-m].setCloseDT(self.dt[i])
+                                    trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcPnL()
+                                    trade_record[k][-m].calcRtn()
+                                    uncovered_record_sub.append(uncovered_record[k][-j])
 
+                                    needed_covered = 0.
+
+                                    # 对于没有平仓的部分新建交易记录
+                                    count += 1
+                                    tr_r = TradeRecordByTrade()
+                                    tr_r.setCounter(count)
+                                    tr_r.setOpen(trade_record[k][-m].open)
+                                    tr_r.setOpenDT(trade_record[k][-m].open_dt)
+                                    tr_r.setVolume(uncovered_vol)
+                                    tr_r.setMultiplier(self.unit[self.category[k]])
+                                    tr_r.setContract(k)
+                                    tr_r.setDirection(trade_record[k][-m].direction)
+                                    trade_record[k].append(tr_r)
+                                    uncovered_record_add.append(tr_r.count)
+                                    break
+
+                                # 如果需要减仓的数量等于最近的开仓数量
+                                elif needed_covered == trade_record[k][-m].volume:
+                                    trade_record[k][-m].setClose(trade_price[i])
+                                    trade_record[k][-m].setCloseDT(self.dt[i])
+                                    trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcPnL()
+                                    trade_record[k][-m].calcRtn()
+                                    uncovered_record_sub.append(uncovered_record[k][-j])
+                                    needed_covered = 0.
+                                    break
+
+                                # 如果需要减仓的数量大于最近的开仓数量
+                                elif needed_covered > trade_record[k][-m].volume:
+                                    trade_record[k][-m].setClose(trade_price[i])
+                                    trade_record[k][-m].setCloseDT(self.dt[i])
+                                    trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcPnL()
+                                    trade_record[k][-m].calcRtn()
+                                    uncovered_record_sub.append(uncovered_record[k][-j])
+                                    needed_covered -= trade_record[k][-m].volume
+                                    break
+
+                        if needed_covered == 0.:
+                            for tr in uncovered_record_sub:
+                                uncovered_record[k].remove(tr)
+                            for tr in uncovered_record_add:
+                                uncovered_record[k].append(tr)
+                            break
 
                 elif v[i] * v[i-1] < 0:
 
-                    # 平仓后反方向开仓（目前只支持一次平仓）
-                    j = 1
-                    while unclosed != 0 and unclosed_dir == np.sign(v[i-1]):
-                        trade_record[k][-j].setClose(trade_price[i])
-                        trade_record[k][-j].setCloseDT(self.dt[i])
-                        trade_record[k][-j].calcHoldingPeriod()
-                        trade_record[k][-j].calcPnL()
-                        trade_record[k][-j].calcRtn()
-                        unclosed = unclosed - trade_record[k][-j].volume
-                        if unclosed == 0:
-                            unclosed_dir = None
-                        j += 1
+                    # 先平仓后开仓
+                    needed_covered = abs(v[i - 1])  # 需要减仓的数量
+                    uncovered_record_sub = []
+                    for j in np.arange(1, len(uncovered_record[k]) + 1):
+                        for m in np.arange(1, len(trade_record[k]) + 1):
+                            if uncovered_record[k][-j] == trade_record[k][-m].count:
+                                # 如果需要减仓的数量小于最近的开仓的数量，会报错
+                                if needed_covered < trade_record[k][-m].volume:
+                                    raise Exception(u'请检查，待减仓的数量为什么会小于已经开仓的数量')
+
+                                # 如果需要减仓的数量等于最近的开仓数量
+                                elif needed_covered == trade_record[k][-m].volume:
+                                    trade_record[k][-m].setClose(trade_price[i])
+                                    trade_record[k][-m].setCloseDT(self.dt[i])
+                                    trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcPnL()
+                                    trade_record[k][-m].calcRtn()
+                                    uncovered_record_sub.append(uncovered_record[k][-j])
+                                    needed_covered = 0.
+                                    break
+
+                                # 如果需要减仓的数量大于最近的开仓数量
+                                elif needed_covered > trade_record[k][-m].volume:
+                                    trade_record[k][-m].setClose(trade_price[i])
+                                    trade_record[k][-m].setCloseDT(self.dt[i])
+                                    trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcPnL()
+                                    trade_record[k][-m].calcRtn()
+                                    uncovered_record_sub.append(uncovered_record[k][-j])
+                                    needed_covered -= trade_record[k][-m].volume
+                                    break
+
+                        if needed_covered == 0.:
+                            for tr in uncovered_record_sub:
+                                uncovered_record[k].remove(tr)
+                            break
+                    if uncovered_record[k]:
+                        print uncovered_record[k]
+                        raise Exception(u'请检查，依然有未平仓的交易，无法新开反向仓')
+
 
                     count += 1
                     tr_r = TradeRecordByTrade()
@@ -499,8 +572,7 @@ class BacktestSys(object):
                     tr_r.setContract(k)
                     tr_r.setDirection(np.sign(v[i]))
                     trade_record[k].append(tr_r)
-                    unclosed = unclosed + tr_r.volume
-                    unclosed_dir = tr_r.direction
+                    uncovered_record[k].append(tr_r.count)
 
             trade_times = len(trade_record[k])
             buy_times = len([t for t in trade_record[k] if t.direction == 1])
@@ -534,7 +606,6 @@ class BacktestSys(object):
 
             total_pnl_k = np.nansum([t.pnl for t in trade_record[k]])
             total_pnl += total_pnl_k
-        print total_pnl
         return trade_record
 
     def statsTotal(self, wgtsDict):
@@ -542,6 +613,8 @@ class BacktestSys(object):
 
         pnl, margin_occ, value = self.getPnlDaily(wgtsDict)
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
+        # res_df = pd.DataFrame({'net value': nv}, index=self.dt)
+        # res_df.to_clipboard()
         margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
         leverage = value / (self.capital + np.cumsum(pnl))
         trade_record = self.statTrade(wgtsDict)
