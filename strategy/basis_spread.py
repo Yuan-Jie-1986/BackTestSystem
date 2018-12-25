@@ -61,9 +61,9 @@ class BasisSpread(BacktestSys):
             # 计算得到各合约的20日波动
             vol_daily = {}
             wgt_daily = {}
-            n = max(0, i - 250)
+            n = max(0, i - 60)
             for k in basis_spread_ratio:
-                vol_daily[k] = np.nanstd(self.data[k]['CLOSE'][n:i]) * self.unit[self.category[k]]
+                vol_daily[k] = np.std(self.data[k]['CLOSE'][n:i]) * self.unit[self.category[k]]
                 # vol_daily[k] = self.data[k]['CLOSE'][i] * self.unit[self.category[k]]
                 wgt_daily[k] = 1. / vol_daily[k]
                 # if np.isinf(wgt_daily[k]):
@@ -77,14 +77,12 @@ class BasisSpread(BacktestSys):
                 # if np.isinf(wgt_daily[k]):
                 #     wgt_daily[k] = 1.
 
-            print wgt_daily
-
 
             for k in basis_spread_ratio:
                 if basis_spread_ratio[k][i] <= low_point:
-                    wgtsDict[k][i] = - int(5. * wgt_daily[k])
+                    wgtsDict[k][i] = - int(3. * wgt_daily[k])
                 elif basis_spread_ratio[k][i] >= high_point:
-                    wgtsDict[k][i] = int(5. * wgt_daily[k])
+                    wgtsDict[k][i] = int(3. * wgt_daily[k])
 
         wgtsDict = self.wgtsProcess(wgtsDict)
 
