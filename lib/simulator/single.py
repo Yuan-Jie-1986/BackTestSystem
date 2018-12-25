@@ -16,8 +16,7 @@ warnings.filterwarnings('ignore')
 class SingleBT(BacktestSys):
 
     def __init__(self):
-        self.current_file = __file__
-        self.prepare()
+        super(SingleBT, self).__init__()
 
     def strategy(self):
 
@@ -34,7 +33,7 @@ class SingleBT(BacktestSys):
         # 该步骤一样要有
         wgtDict = self.wgtsProcess(wgtDict)
 
-        self.statsTotal(wgtDict)
+        self.displayResult(wgtDict, True)
 
 
 

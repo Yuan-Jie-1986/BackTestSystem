@@ -1,5 +1,6 @@
 # coding=utf-8
 
+import sys
 import numpy as np
 import pandas as pd
 import pymongo
@@ -201,21 +202,8 @@ class TradeRecordByDay(object):
 class BacktestSys(object):
 
     def __init__(self):
-        # self.start_date = None  # 策略起始日期
-        # self.end_date = None  # 结束日期
-        # # self.lookback = None
-        # # self.init_date = None
-        # self.net_value = None  # 净值曲线
-        # self.periods = None  # 持仓时间长度
-        # self.rtn_daily = None  # 日收益率
-        # # self.weights = None  # 日权重
-        # self.leverage = None  # 杠杆率
-        # self.capital = None  # 总资金
-        # self.bt_mode = None
-        # self.contract = None  # 交易的合约
-        # # self.multiplier = None  # 合约乘数
-        # self.margin_ratio = None
-        pass
+        self.current_file = sys.argv[0]
+        self.prepare()
 
     def prepare(self):
         # 根据yaml配置文件从数据库中抓取数据，并对回测进行参数设置
@@ -262,13 +250,13 @@ class BacktestSys(object):
             df_res.drop(columns='_id', inplace=True)
             self.data[d['obj_content']] = df_res.to_dict(orient='list')
 
-
         # 将提取的数据按照交易时间的并集重新生成
         date_set = set()
         for _, v in self.data.items():
             date_set = date_set.union(v['date'])
         self.dt = np.array(list(date_set))
         self.dt.sort()
+
         # 如果定义了date_type，则去调取交易日期序列
         if 'date_type' in conf:
             self.date_type = conf['date_type']
@@ -282,6 +270,7 @@ class BacktestSys(object):
             dt_con = np.in1d(self.dt, trading_dt)
             self.dt = self.dt[dt_con]
 
+        # 根据交易日期序列重新整理数据
         for k, v in self.data.items():
             con_1 = np.in1d(self.dt, v['date'])
             con_2 = np.in1d(v['date'], self.dt)
@@ -295,6 +284,7 @@ class BacktestSys(object):
         raise NotImplementedError
 
     def wgtsProcess(self, wgtsDict):
+        """对生成的权重进行处理"""
         if self.bt_mode == 'OPEN':
             # 如果是开盘价进行交易，则将初始权重向后平移一位
             for k in wgtsDict:
@@ -337,6 +327,7 @@ class BacktestSys(object):
                 if i != 0 and ~np.isnan(self.data[k]['CLOSE'][i-1]):
                     mkdata[k]['PRECLOSE'] = self.data[k]['CLOSE'][i-1]
 
+                # 合约首日交易便有持仓时
                 if i == 0 or np.isnan(self.data[k]['CLOSE'][i-1]):
                     if val[i] != 0:
                         newtrade = TradeRecordByTimes()
@@ -412,8 +403,6 @@ class BacktestSys(object):
                 print u'%s的权重向量与时间向量长度不一致' % k
                 raise Exception(u'权重向量与时间向量长度不一致')
 
-        total_pnl = 0
-
         trade_record = {}
         uncovered_record = {}
         for k, v in wgtsDict.items():
@@ -433,6 +422,7 @@ class BacktestSys(object):
                     tr_r.setCounter(count)
                     tr_r.setOpen(trade_price[i])
                     tr_r.setOpenDT(self.dt[i])
+                    tr_r.setCommodity(self.category[k])
                     tr_r.setVolume(abs(v[i]))
                     tr_r.setMultiplier(self.unit[self.category[k]])
                     tr_r.setContract(k)
@@ -447,6 +437,7 @@ class BacktestSys(object):
                     tr_r.setCounter(count)
                     tr_r.setOpen(trade_price[i])
                     tr_r.setOpenDT(self.dt[i])
+                    tr_r.setCommodity(self.category[k])
                     tr_r.setVolume(abs(v[i]) - abs(v[i-1]))
                     tr_r.setMultiplier(self.unit[self.category[k]])
                     tr_r.setContract(k)
@@ -482,6 +473,7 @@ class BacktestSys(object):
                                     tr_r.setCounter(count)
                                     tr_r.setOpen(trade_record[k][-m].open)
                                     tr_r.setOpenDT(trade_record[k][-m].open_dt)
+                                    tr_r.setCommodity(self.category[k])
                                     tr_r.setVolume(uncovered_vol)
                                     tr_r.setMultiplier(self.unit[self.category[k]])
                                     tr_r.setContract(k)
@@ -561,12 +553,12 @@ class BacktestSys(object):
                         print uncovered_record[k]
                         raise Exception(u'请检查，依然有未平仓的交易，无法新开反向仓')
 
-
                     count += 1
                     tr_r = TradeRecordByTrade()
                     tr_r.setCounter(count)
                     tr_r.setOpen(trade_price[i])
                     tr_r.setOpenDT(self.dt[i])
+                    tr_r.setCommodity(self.category[k])
                     tr_r.setVolume(abs(v[i]))
                     tr_r.setMultiplier(self.unit[self.category[k]])
                     tr_r.setContract(k)
@@ -604,17 +596,13 @@ class BacktestSys(object):
             print '平均每笔交易收益率(不考虑杠杆): %f' % np.nanmean(trade_rtn)
             print '平均年化收益率(不考虑杠杆): %f' % (np.nansum(trade_rtn) * 250. / np.nansum(trade_holding_period))
 
-            total_pnl_k = np.nansum([t.pnl for t in trade_record[k]])
-            total_pnl += total_pnl_k
         return trade_record
 
-    def statsTotal(self, wgtsDict):
+    def displayResult(self, wgtsDict, saveLocal=True):
         # 需要注意的一个问题是，如果在getPnlDaily函数中改变了wgtsDict，那么之后所用的wgtsDict就都改变了
-
+        # saveLocal是逻辑变量，是否将结果存在本地
         pnl, margin_occ, value = self.getPnlDaily(wgtsDict)
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
-        # res_df = pd.DataFrame({'net value': nv}, index=self.dt)
-        # res_df.to_clipboard()
         margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
         leverage = value / (self.capital + np.cumsum(pnl))
         trade_record = self.statTrade(wgtsDict)
@@ -623,6 +611,31 @@ class BacktestSys(object):
         trade_pnl = []
         for tr in trade_record:
             trade_pnl.extend([t.pnl for t in trade_record[tr]])
+
+        if saveLocal:
+            current_file = sys.argv[0]
+            save_path = os.path.splitext(current_file)[0]
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            # 保存权重为wgts.csv
+            wgts_df = pd.DataFrame.from_dict(wgtsDict)
+            wgts_df.index = self.dt
+            wgts_df.to_csv(os.path.join(save_path, 'wgts.csv'))
+
+            # 保存总的回测结果为result.csv
+            total_df = pd.DataFrame({'每日PnL': pnl, '净值': nv, '资金占用比例': margin_occ_ratio, '杠杆倍数': leverage},
+                                    index=self.dt)
+            total_df.to_csv(os.path.join(save_path, 'result.csv'))
+
+
+            # 保存交易记录为trade_detail.csv
+            detail_df = pd.DataFrame()
+            for k in trade_record:
+                detail_df = pd.concat([detail_df, pd.DataFrame.from_records([tr.__dict__ for tr in trade_record[k]])],
+                                      ignore_index=True)
+            detail_df.to_csv(os.path.join(save_path, 'details.csv'))
+
+
 
         trade_pnl = np.array(trade_pnl)
         plt.subplot(411)
