@@ -6,8 +6,7 @@ import re
 
 class BasisSpread(BacktestSys):
     def __init__(self):
-        self.current_file = __file__
-        self.prepare()
+        super(BasisSpread, self).__init__()
 
     def strategy(self):
 
@@ -61,7 +60,7 @@ class BasisSpread(BacktestSys):
             # 计算得到各合约的20日波动
             vol_daily = {}
             wgt_daily = {}
-            n = max(0, i - 60)
+            n = max(0, i - 240)
             for k in basis_spread_ratio:
                 vol_daily[k] = np.std(self.data[k]['CLOSE'][n:i]) * self.unit[self.category[k]]
                 # vol_daily[k] = self.data[k]['CLOSE'][i] * self.unit[self.category[k]]
@@ -86,9 +85,11 @@ class BasisSpread(BacktestSys):
 
         wgtsDict = self.wgtsProcess(wgtsDict)
 
-        self.statsTotal(wgtsDict)
+        self.displayResult(wgtsDict, saveLocal=True)
 
-a = BasisSpread()
-a.strategy()
+
+if __name__ == '__main__':
+    a = BasisSpread()
+    a.strategy()
 
 
