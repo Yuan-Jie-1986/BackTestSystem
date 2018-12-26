@@ -1,0 +1,123 @@
+
+host: localhost
+port: 27017
+db_name: CBNB
+user: yuanjie
+pwd: yuanjie
+
+start_date: '20130101'
+end_date: '20181110'
+capital: 1e6
+backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
+
+date_type: SHSE
+
+data:
+
+  -
+    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+    obj_field: wind_code
+    obj_content: TA.CZC
+    commodity: TA
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: L.DCE
+    commodity: L
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: MA.CZC
+    commodity: MA
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: RB.SHF
+    commodity: RB
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: J.DCE
+    commodity: J
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: JM.DCE
+    commodity: JM
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: HC.SHF
+    commodity: HC
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: BU.SHF
+    commodity: BU
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: ZC.CZC
+    commodity: ZC
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: I.DCE
+    commodity: I
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: PP.DCE
+    commodity: PP
+    fields: [OPEN, CLOSE]
+
+  -
+    obj_field: wind_code
+    obj_content: V.DCE
+    commodity: V
+    fields: [OPEN, CLOSE]
+
+
+trade_unit:
+  TA: 5
+  PP: 5
+  L: 5
+  RB: 10
+  HC: 10
+  J: 100
+  JM: 60
+  I: 100
+  MA: 10
+  ZC: 100
+  BU: 10
+  V: 5
+
+margin_ratio:
+  TA.CZC: 0.07
+  PP.DCE: 0.07
+  L.DCE: 0.07
+  RB.SHF: 0.07
+  HC.SHF: 0.07
+  J.DCE: 0.07
+  JM.DCE: 0.07
+  I.DCE: 0.07
+  MA.CZC: 0.07
+  ZC.CZC: 0.07
+  BU.SHF: 0.07
+  V.DCE: 0.07
+
+
+
+
+
+

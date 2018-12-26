@@ -62,8 +62,8 @@ class BasisSpread(BacktestSys):
             wgt_daily = {}
             n = max(0, i - 240)
             for k in basis_spread_ratio:
-                vol_daily[k] = np.std(self.data[k]['CLOSE'][n:i]) * self.unit[self.category[k]]
-                # vol_daily[k] = self.data[k]['CLOSE'][i] * self.unit[self.category[k]]
+                # vol_daily[k] = np.std(self.data[k]['CLOSE'][n:i]) * self.unit[self.category[k]]
+                vol_daily[k] = self.data[k]['CLOSE'][i] * self.unit[self.category[k]]
                 wgt_daily[k] = 1. / vol_daily[k]
                 # if np.isinf(wgt_daily[k]):
                 #     print wgt_daily[k], k, vol_daily[k]
@@ -79,9 +79,9 @@ class BasisSpread(BacktestSys):
 
             for k in basis_spread_ratio:
                 if basis_spread_ratio[k][i] <= low_point:
-                    wgtsDict[k][i] = - int(3. * wgt_daily[k])
+                    wgtsDict[k][i] = - int(5. * wgt_daily[k])
                 elif basis_spread_ratio[k][i] >= high_point:
-                    wgtsDict[k][i] = int(3. * wgt_daily[k])
+                    wgtsDict[k][i] = int(5. * wgt_daily[k])
 
         wgtsDict = self.wgtsProcess(wgtsDict)
 
