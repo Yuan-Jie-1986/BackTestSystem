@@ -415,8 +415,9 @@ class BacktestSys(object):
             for i in range(len(v)):
                 if np.isnan(trade_price[i]) or (i == 0 and v[i] == 0):
                     continue
-                if v[i] != 0 and (i == 0 or np.isnan(trade_price[i-1])):
+                if (v[i] != 0 and i == 0) or (v[i] != 0 and np.isnan(trade_price[i-1]) and i != 0 and v[i-1] == 0):
                     # 第一天交易就开仓
+                    # 第二种情况是为了排除该品种当天没有交易，价格为nan的这种情况，e.g. 20141202 BU.SHF
                     count += 1
                     tr_r = TradeRecordByTrade()
                     tr_r.setCounter(count)
@@ -428,7 +429,7 @@ class BacktestSys(object):
                     tr_r.setContract(k)
                     tr_r.setDirection(np.sign(v[i]))
                     trade_record[k].append(tr_r)
-                    uncovered_record[k].append(tr_r)
+                    uncovered_record[k].append(tr_r.count)
 
                 elif abs(v[i]) > abs(v[i-1]) and v[i] * v[i-1] >= 0:
                     # 新开仓或加仓
@@ -550,7 +551,7 @@ class BacktestSys(object):
                                 uncovered_record[k].remove(tr)
                             break
                     if uncovered_record[k]:
-                        print uncovered_record[k]
+                        print self.dt[i], uncovered_record[k][0]
                         raise Exception(u'请检查，依然有未平仓的交易，无法新开反向仓')
 
                     count += 1
