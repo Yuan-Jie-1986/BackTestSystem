@@ -25,6 +25,9 @@ class TradeRecordByTimes(object):
         self.trade_margin_occupation = None  # 保证金占用
         self.trade_type = None  # 交易类型，是平仓还是开仓。1为开仓，-1为平仓
         self.trade_commodity_value = None  # 合约价值，一定是正值
+        self.trade_cost_mode = None  # 手续费收取方式：percentage还是fixed
+        self.trade_cost_unit = None  # 手续费
+        self.trade_cost = 0.
 
     def setDT(self, val):
         self.dt = val
@@ -53,12 +56,23 @@ class TradeRecordByTimes(object):
     def setMarginRatio(self, val):
         self.trade_margin_ratio = val
 
+    def setCost(self, mode, value):
+        self.trade_cost_mode = mode
+        self.trade_cost_unit = value
+
     def calMarginOccupation(self):
         self.trade_margin_occupation = self.trade_price * self.trade_multiplier * self.trade_margin_ratio * \
                                        self.trade_volume
 
     def calValue(self):
         self.trade_commodity_value = self.trade_price * self.trade_multiplier * abs(self.trade_volume)
+
+    def calCost(self):
+        if self.trade_cost_mode == 'percentage':
+            self.trade_cost = self.trade_price * self.trade_volume * self.trade_multiplier * self.trade_cost_unit
+        elif self.trade_cost_mode == 'fixed':
+            self.trade_cost = self.trade_volume * self.trade_cost_unit
+
 
 # 逐笔的交易记录
 class TradeRecordByTrade(object):
@@ -77,15 +91,37 @@ class TradeRecordByTrade(object):
         self.pnl = np.nan
         self.rtn = np.nan
         self.holding_period = np.nan  # 该交易的交易周期
+        self.tcost_mode = None
+        self.tcost_unit = np.nan
+        self.tcost = 0
 
     def calcPnL(self):
-        self.pnl = (self.close - self.open) * self.volume * self.multiplier * self.direction
+        self.pnl = (self.close - self.open) * self.volume * self.multiplier * self.direction - self.tcost
 
     def calcRtn(self):
-        self.rtn = self.direction * ((self.close / self.open) - 1.)
+        self.calcPnL()
+        self.rtn = self.pnl / (self.open * self.volume * self.multiplier)
+        # self.rtn = self.direction * ((self.close / self.open) - 1.)
+
+    def calcPnlDeductedCost(self):
+        self.calcTcost()
+        self.calcPnL()
+        self.pnl_deducted_cost = self.pnl - self.tcost
+
+    def calcRtnDeductedCost(self):
+        self.calcPnlDeductedCost()
+        self.rtn_deducted_cost = self.pnl_deducted_cost / (self.open * self.volume * self.multiplier)
+
 
     def calcHoldingPeriod(self):
         self.holding_period = (self.close_dt - self.open_dt + timedelta(1)).days
+
+    def calcTcost(self):
+        if self.tcost_mode == 'percentage':
+            self.tcost = (self.open + self.close) * self.volume * self.multiplier * self.tcost_unit
+        elif self.tcost_mode == 'fixed':
+            self.tcost = self.volume * 2. * self.tcost_unit
+
 
     def setOpen(self, val):
         self.open = val
@@ -116,6 +152,10 @@ class TradeRecordByTrade(object):
 
     def setCounter(self, val):
         self.count = val
+
+    def setTcost(self, mode, value):
+        self.tcost_mode = mode
+        self.tcost_unit = value
 
 
 # 逐日的交易记录
@@ -154,9 +194,10 @@ class TradeRecordByDay(object):
                 new_pnl = v['volume'] * (self.mkdata[k]['CLOSE'] - self.mkdata[k]['PRECLOSE']) * \
                           self.mkdata[k]['multiplier']
 
-                # 如果某些品种当天没有成交量，那么算出来的结果可能为nan，这时将其调整为0
+                # 如果某些品种当天没有成交量，那么算出来的结果可能为nan
                 if np.isnan(new_pnl):
-                    new_pnl = 0.
+                    print self.dt
+                    raise Exception(u'请检查当天的量价数据是否有问题')
 
                 self.daily_pnl += new_pnl
 
@@ -170,11 +211,17 @@ class TradeRecordByDay(object):
                     new_pnl = nt.trade_volume * nt.trade_direction * nt.trade_multiplier * \
                               (self.mkdata[k]['CLOSE'] - nt.trade_price)
 
-                    # 如果某些品种当天没有成交量，那么算出来的结果可能为nan，这时将其调整为0
+                    # 如果某些品种当天没有成交量，那么算出来的结果可能为nan
                     if np.isnan(new_pnl):
-                        new_pnl = 0.
+                        print self.dt, nt.__dict__
+                        raise Exception(u'请检查当天的量价数据是否有问题')
+                    if np.isnan(nt.trade_cost):
+                        print self.dt, nt.__dict__
+                        raise Exception(u'交易费用为nan，请检查当天的量价数据是否有问题')
 
-                    self.daily_pnl = self.daily_pnl + new_pnl
+                    self.daily_pnl = self.daily_pnl + new_pnl - nt.trade_cost
+
+
 
                     self.holdPosition[k]['volume'] = self.holdPosition[k]['volume'] + nt.trade_volume * \
                                                      nt.trade_direction
@@ -240,6 +287,11 @@ class BacktestSys(object):
         self.bt_mode = conf['backtest_mode']
         self.margin_ratio = conf['margin_ratio']
         self.category = {}
+        self.tcost = conf['tcost']
+
+        if self.tcost:
+            self.tcost_list = conf['tcost_list']
+
         for d in raw_data:
             self.category[d['obj_content']] = d['commodity']
             table = self.db[d['collection']] if 'collection' in d else self.db['FuturesMD']
@@ -279,6 +331,14 @@ class BacktestSys(object):
                 if sub_k != 'date':
                     self.data[k][sub_k] = np.ones(self.dt.shape) * np.nan
                     self.data[k][sub_k][con_1] = np.array(sub_v)[con_2]
+
+        # 对某些数据进行修正
+        # 沥青数据
+        dt_error = [datetime(2014, 12, 2), datetime(2014, 12, 15), datetime(2014, 12, 19), datetime(2014, 12, 22),
+                    datetime(2014, 12, 23)]
+        for d in dt_error:
+            self.data['BU.SHF']['OPEN'][self.dt == d] = self.data['BU.SHF']['CLOSE'][self.dt == d]
+
 
     def strategy(self):
         raise NotImplementedError
@@ -339,7 +399,9 @@ class BacktestSys(object):
                         newtrade.setVolume(abs(val[i]))
                         newtrade.setMultiplier(self.unit[self.category[k]])
                         newtrade.setDirection(np.sign(val[i]))
-
+                        if self.tcost:
+                            newtrade.setCost(**self.tcost_list[k])
+                        newtrade.calCost()
                         newtradedaily.append(newtrade)
 
                 else:
@@ -353,6 +415,9 @@ class BacktestSys(object):
                         newtrade1.setVolume(abs(val[i-1]))
                         newtrade1.setMultiplier(self.unit[self.category[k]])
                         newtrade1.setDirection(np.sign(val[i]))
+                        if self.tcost:
+                            newtrade1.setCost(**self.tcost_list[k])
+                        newtrade1.calCost()
                         newtradedaily.append(newtrade1)
 
                         newtrade2 = TradeRecordByTimes()
@@ -364,6 +429,9 @@ class BacktestSys(object):
                         newtrade2.setVolume(abs(val[i]))
                         newtrade2.setMultiplier(self.unit[self.category[k]])
                         newtrade2.setDirection(np.sign(val[i]))
+                        if self.tcost:
+                            newtrade2.setCost(**self.tcost_list[k])
+                        newtrade2.calCost()
                         newtradedaily.append(newtrade2)
 
                     elif val[i] == val[i-1]:  # 没有交易
@@ -379,6 +447,9 @@ class BacktestSys(object):
                         newtrade.setVolume(abs(val[i] - val[i-1]))
                         newtrade.setMultiplier(self.unit[self.category[k]])
                         newtrade.setDirection(np.sign(val[i] - val[i-1]))
+                        if self.tcost:
+                            newtrade.setCost(**self.tcost_list[k])
+                        newtrade.calCost()
                         newtradedaily.append(newtrade)
 
             trd = TradeRecordByDay(dt=v, holdPosDict=holdpos, MkData=mkdata, newTrade=newtradedaily)
@@ -402,7 +473,7 @@ class BacktestSys(object):
             if len(v) != len(self.dt):
                 print u'%s的权重向量与时间向量长度不一致' % k
                 raise Exception(u'权重向量与时间向量长度不一致')
-
+        # total_pnl = 0.
         trade_record = {}
         uncovered_record = {}
         for k, v in wgtsDict.items():
@@ -413,6 +484,7 @@ class BacktestSys(object):
             trade_price = self.data[k][self.bt_mode]
 
             for i in range(len(v)):
+
                 if np.isnan(trade_price[i]) or (i == 0 and v[i] == 0):
                     continue
                 if (v[i] != 0 and i == 0) or (v[i] != 0 and np.isnan(trade_price[i-1]) and i != 0 and v[i-1] == 0):
@@ -428,8 +500,11 @@ class BacktestSys(object):
                     tr_r.setMultiplier(self.unit[self.category[k]])
                     tr_r.setContract(k)
                     tr_r.setDirection(np.sign(v[i]))
+                    if self.tcost:
+                        tr_r.setTcost(**self.tcost_list[k])
                     trade_record[k].append(tr_r)
                     uncovered_record[k].append(tr_r.count)
+
 
                 elif abs(v[i]) > abs(v[i-1]) and v[i] * v[i-1] >= 0:
                     # 新开仓或加仓
@@ -443,6 +518,8 @@ class BacktestSys(object):
                     tr_r.setMultiplier(self.unit[self.category[k]])
                     tr_r.setContract(k)
                     tr_r.setDirection(np.sign(v[i]))
+                    if self.tcost:
+                        tr_r.setTcost(**self.tcost_list[k])
                     trade_record[k].append(tr_r)
                     uncovered_record[k].append(tr_r.count)
 
@@ -462,6 +539,7 @@ class BacktestSys(object):
                                     trade_record[k][-m].setClose(trade_price[i])
                                     trade_record[k][-m].setCloseDT(self.dt[i])
                                     trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcTcost()
                                     trade_record[k][-m].calcPnL()
                                     trade_record[k][-m].calcRtn()
                                     uncovered_record_sub.append(uncovered_record[k][-j])
@@ -479,15 +557,20 @@ class BacktestSys(object):
                                     tr_r.setMultiplier(self.unit[self.category[k]])
                                     tr_r.setContract(k)
                                     tr_r.setDirection(trade_record[k][-m].direction)
+                                    if self.tcost:
+                                        tr_r.setTcost(**self.tcost_list[k])
                                     trade_record[k].append(tr_r)
                                     uncovered_record_add.append(tr_r.count)
+
                                     break
+
 
                                 # 如果需要减仓的数量等于最近的开仓数量
                                 elif needed_covered == trade_record[k][-m].volume:
                                     trade_record[k][-m].setClose(trade_price[i])
                                     trade_record[k][-m].setCloseDT(self.dt[i])
                                     trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcTcost()
                                     trade_record[k][-m].calcPnL()
                                     trade_record[k][-m].calcRtn()
                                     uncovered_record_sub.append(uncovered_record[k][-j])
@@ -499,6 +582,7 @@ class BacktestSys(object):
                                     trade_record[k][-m].setClose(trade_price[i])
                                     trade_record[k][-m].setCloseDT(self.dt[i])
                                     trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcTcost()
                                     trade_record[k][-m].calcPnL()
                                     trade_record[k][-m].calcRtn()
                                     uncovered_record_sub.append(uncovered_record[k][-j])
@@ -529,10 +613,12 @@ class BacktestSys(object):
                                     trade_record[k][-m].setClose(trade_price[i])
                                     trade_record[k][-m].setCloseDT(self.dt[i])
                                     trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcTcost()
                                     trade_record[k][-m].calcPnL()
                                     trade_record[k][-m].calcRtn()
                                     uncovered_record_sub.append(uncovered_record[k][-j])
                                     needed_covered = 0.
+
                                     break
 
                                 # 如果需要减仓的数量大于最近的开仓数量
@@ -540,10 +626,12 @@ class BacktestSys(object):
                                     trade_record[k][-m].setClose(trade_price[i])
                                     trade_record[k][-m].setCloseDT(self.dt[i])
                                     trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcTcost()
                                     trade_record[k][-m].calcPnL()
                                     trade_record[k][-m].calcRtn()
                                     uncovered_record_sub.append(uncovered_record[k][-j])
                                     needed_covered -= trade_record[k][-m].volume
+
                                     break
 
                         if needed_covered == 0.:
@@ -564,6 +652,8 @@ class BacktestSys(object):
                     tr_r.setMultiplier(self.unit[self.category[k]])
                     tr_r.setContract(k)
                     tr_r.setDirection(np.sign(v[i]))
+                    if self.tcost:
+                        tr_r.setTcost(**self.tcost_list[k])
                     trade_record[k].append(tr_r)
                     uncovered_record[k].append(tr_r.count)
 
@@ -596,6 +686,10 @@ class BacktestSys(object):
             print '做空平均盈亏: %f' % sell_avg_pnl
             print '平均每笔交易收益率(不考虑杠杆): %f' % np.nanmean(trade_rtn)
             print '平均年化收益率(不考虑杠杆): %f' % (np.nansum(trade_rtn) * 250. / np.nansum(trade_holding_period))
+
+            # total_pnl_k = np.nansum([tr.pnl for tr in trade_record[k]])
+            # total_pnl += total_pnl_k
+            # print total_pnl
 
         return trade_record
 
