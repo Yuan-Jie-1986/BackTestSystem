@@ -486,8 +486,10 @@ class BacktestSys(object):
             for i in range(len(v)):
 
                 if np.isnan(trade_price[i]) or (i == 0 and v[i] == 0):
+                    # 需要注意的是如果当天没有成交量，可能一些价格会是nan值，会导致回测计算结果不准确
                     continue
-                if (v[i] != 0 and i == 0) or (v[i] != 0 and np.isnan(trade_price[i-1]) and i != 0 and v[i-1] == 0):
+
+                elif (v[i] != 0 and i == 0) or (v[i] != 0 and np.isnan(trade_price[i-1]) and i != 0 and v[i-1] == 0):
                     # 第一天交易就开仓
                     # 第二种情况是为了排除该品种当天没有交易，价格为nan的这种情况，e.g. 20141202 BU.SHF
                     count += 1
@@ -504,7 +506,6 @@ class BacktestSys(object):
                         tr_r.setTcost(**self.tcost_list[k])
                     trade_record[k].append(tr_r)
                     uncovered_record[k].append(tr_r.count)
-
 
                 elif abs(v[i]) > abs(v[i-1]) and v[i] * v[i-1] >= 0:
                     # 新开仓或加仓
