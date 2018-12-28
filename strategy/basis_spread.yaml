@@ -199,22 +199,45 @@ margin_ratio:
   BU.SHF: 0.07
   V.DCE: 0.07
 
-tcost:
+tcost: 0
+
+tcost_list:
   TA.CZC:
-    mode: percentage
-    value: 0.06
+    mode: fixed
+    value: 24
   PP.DCE:
-    mode:
-  L.DCE: 0.07
-  RB.SHF: 0.07
-  HC.SHF: 0.07
-  J.DCE: 0.07
-  JM.DCE: 0.07
-  I.DCE: 0.07
-  MA.CZC: 0.07
-  ZC.CZC: 0.07
-  BU.SHF: 0.07
-  V.DCE: 0.07
+    mode: percentage
+    value: 0.00024
+  L.DCE:
+    mode: fixed
+    value: 8
+  RB.SHF:
+    mode: percentage
+    value: 0.0004
+  HC.SHF:
+    mode: percentage
+    value: 0.0004
+  J.DCE:
+    mode: percentage
+    value: 0.00024
+  JM.DCE:
+    mode: percentage
+    value: 0.00024
+  I.DCE:
+    mode: percentage
+    value: 0.00048
+  MA.CZC:
+    mode: fixed
+    value: 16
+  ZC.CZC:
+    mode: fixed
+    value: 16
+  BU.SHF:
+    mode: percentage
+    value: 0.0004
+  V.DCE:
+    mode: fixed
+    value: 8
 
 
 
