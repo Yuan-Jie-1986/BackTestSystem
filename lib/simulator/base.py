@@ -353,6 +353,39 @@ class BacktestSys(object):
                 wgtsDict[k] = res
         return wgtsDict
 
+    def wgtsStandardization(self, wgtsDict):
+        """根据给定的权重重新生成标准化的权重：将所有初始资金全部使用，而不加杠杆。各合约之间的比例根据合约价值的倒数的比例来确定"""
+
+        # for i in np.arange(len(self.dt)):
+        #     for k in wgtsDict:
+        #
+        #
+        #         print self.dt[i], k, self.data[k]['CLOSE'][i]
+
+        # 权重的dataframe
+        wgts_df = pd.DataFrame.from_dict(wgtsDict)
+        wgts_df.index = self.dt
+        cls = dict()
+        for k in wgtsDict:
+            cls[k] = self.data[k]['CLOSE']
+        cls_df = pd.DataFrame.from_dict(cls)
+        cls_df.index = self.dt
+        for c in cls_df:
+            cls_df[c] *= self.unit[self.category[c]]
+        value_df = cls_df * np.sign(abs(wgts_df))  # 合约价值与是否持仓相乘
+        value_df[value_df == 0] = np.nan
+        value_df = 1e6 / value_df  # 合约价值的倒数
+        value_min = value_df.min(axis=1, skipna=True)
+        ratio_df = pd.DataFrame()
+        for c in value_df:
+            ratio_df[c] = value_df[c] / value_min
+        print ratio_df
+        print ratio_df.astype('int')
+
+
+
+
+
     def getPnlDaily(self, wgtsDict):
         # 根据权重计算每日的pnl，每日的保证金占用，每日的合约价值
         # wgtsDict是权重字典，key是合约名，value是该合约权重

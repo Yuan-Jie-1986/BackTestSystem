@@ -59,31 +59,31 @@ class BasisSpread(BacktestSys):
             low_point = bsr_series[num_selection-1]
             high_point = bsr_series[-num_selection]
 
-            # 计算得到各合约的20日波动
-            vol_daily = {}
-            wgt_daily = {}
-            n = max(0, i - 240)
-            for k in basis_spread_ratio:
-                # vol_daily[k] = np.std(self.data[k]['CLOSE'][n:i]) * self.unit[self.category[k]]
-                vol_daily[k] = self.data[k]['CLOSE'][i] * self.unit[self.category[k]]
-                wgt_daily[k] = 1. / vol_daily[k]
-                # if np.isinf(wgt_daily[k]):
-                #     print wgt_daily[k], k, vol_daily[k]
-
-            wgt_min = np.nanmin(wgt_daily.values())
-            for k in wgt_daily:
-                wgt_daily[k] = wgt_daily[k] / wgt_min
-                if ~np.isfinite(wgt_daily[k]):
-                    wgt_daily[k] = 0.
-                # if np.isinf(wgt_daily[k]):
-                #     wgt_daily[k] = 1.
+            # # 计算得到各合约的20日波动
+            # vol_daily = {}
+            # wgt_daily = {}
+            # n = max(0, i - 240)
+            # for k in basis_spread_ratio:
+            #     # vol_daily[k] = np.std(self.data[k]['CLOSE'][n:i]) * self.unit[self.category[k]]
+            #     vol_daily[k] = self.data[k]['CLOSE'][i] * self.unit[self.category[k]]
+            #     wgt_daily[k] = 1. / vol_daily[k]
+            #     # if np.isinf(wgt_daily[k]):
+            #     #     print wgt_daily[k], k, vol_daily[k]
+            #
+            # wgt_min = np.nanmin(wgt_daily.values())
+            # for k in wgt_daily:
+            #     wgt_daily[k] = wgt_daily[k] / wgt_min
+            #     if ~np.isfinite(wgt_daily[k]):
+            #         wgt_daily[k] = 0.
+            #     # if np.isinf(wgt_daily[k]):
+            #     #     wgt_daily[k] = 1.
 
 
             for k in basis_spread_ratio:
                 if basis_spread_ratio[k][i] <= low_point:
-                    wgtsDict[k][i] = - int(5. * wgt_daily[k])
+                    wgtsDict[k][i] = - 5.
                 elif basis_spread_ratio[k][i] >= high_point:
-                    wgtsDict[k][i] = int(5. * wgt_daily[k])
+                    wgtsDict[k][i] = 5.
 
         return wgtsDict
 
@@ -91,7 +91,11 @@ class BasisSpread(BacktestSys):
 if __name__ == '__main__':
     a = BasisSpread()
     wgtsDict = a.strategy()
-    wgtsDict = a.wgtsProcess(wgtsDict)
-    a.displayResult(wgtsDict, saveLocal=True)
+    print wgtsDict
+    a.wgtsProcess(wgtsDict)
+    print wgtsDict
+    a.wgtsStandardization(wgtsDict)
+    print wgtsDict
+    # a.displayResult(wgtsDict, saveLocal=True)
 
 
