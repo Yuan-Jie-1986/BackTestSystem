@@ -397,15 +397,41 @@ class DataSaving(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
-    def combineMainContract(self, source_collection, target_collection, cmd, method, ):
+    def combineMainContract(self, source_collection, target_collection, cmd, method, month_list=range(1, 13)):
         source = self.db[source_collection]
         target = self.db[target_collection]
         info_source = self.db['Information']
-        queryArgs = {'code': {'$regex': cmd}}
 
-        res = info_source.find(queryArgs)
-        for r in res:
-            print r
+        ptn1 = re.compile('[A-Z]+(?=\.)')
+        cmd1 = ptn1.search(cmd).group()
+        ptn2 = re.compile('(?<=\.)[A-Z]+')
+        cmd2 = ptn2.search(cmd).group()
+
+        month_list = ['%02d' % i for i in month_list]
+        month_re = '|'.join(month_list)
+        print month_re
+        print '\A%s(?=\d+).+(%s)(?=\.).+(?<=[\d+\.])%s\Z' % (cmd1, month_re, cmd2)
+
+        queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(%s)(?=\.).+(?<=[\d+\.])%s\Z' % (cmd1, month_re, cmd2)}}
+        projectionFields = ['wind_code', 'last_trade_date', 'contract_issue_date']
+        res = info_source.find(queryArgs, projectionFields)
+        df_res = pd.DataFrame.from_records(res)
+        df_res.drop(columns=['_id'], inplace=True)
+        print df_res
+
+        # 针对已有的合约交易日期，去重之后，得到该品种的所有交易日期
+        queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(?<=[\d+\.])%s\Z' % (cmd1, cmd2)}}
+        projectionFields = ['date']
+        res = source.find(queryArgs, projectionFields).sort('date', pymongo.ASCENDING)
+        df_trade = pd.DataFrame.from_records(res)
+        df_trade.drop(columns=['_id'], inplace=True)
+        df_trade.drop_duplicates(inplace=True)
+        df_trade.index = range(len(df_trade))
+        df_trade.join(df_res[['last_trade_date', 'wind_code']],)
+        pd.concat()
+
+
+
 
 
 if __name__ == '__main__':
@@ -419,8 +445,8 @@ if __name__ == '__main__':
     # DataSaving().test('J.DCE')
     # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
     # DataSaving().getFuturePriceFromRT('LCO')
-    a = DataSaving(host='192.168.1.172', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
-                   log_path="E:\\CBNB\\BackTestSystem\\data_saving.log")
+    a = DataSaving(host='localhost', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
+                   log_path="F:\\CBNB\\CBNB\\BackTestSystem\\data_saving.log")
     # a.getFuturesInfoFromWind(collection='Information', cmd='BU.SHF')
     # a.getFuturePriceFromWind('FuturesMD', 'TA.CZC', alldaytrade=0)
     # a.getPriceFromRT('FuturesMD', cmd='LCOc1', type='futures')
@@ -429,6 +455,7 @@ if __name__ == '__main__':
     # print res
 
     # a.getDateSeries(collection='DateDB', cmd='SHSE', frequecy='Daily')
-    a.combineMainContract(source_collection='FuturesMD', target_collection='DerivDB', cmd='TA', method='1MonPrevious')
+    a.combineMainContract(source_collection='FuturesMD', target_collection='DerivDB', cmd='TA.CZC', method='1MonPrevious',
+                          month_list=[1, 5, 9])
 
 
