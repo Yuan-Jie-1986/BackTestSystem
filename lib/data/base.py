@@ -42,7 +42,6 @@ class DataSaving(object):
             w.start()
         return None
 
-
     def getFuturesInfoFromWind(self, collection, cmd, **kwargs):
         self.windConn()
         coll = self.db[collection]
@@ -398,6 +397,15 @@ class DataSaving(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
+    def combineMainContract(self, source_collection, target_collection, cmd, method, ):
+        source = self.db[source_collection]
+        target = self.db[target_collection]
+        info_source = self.db['Information']
+        queryArgs = {'code': {'$regex': cmd}}
+
+        res = info_source.find(queryArgs)
+        for r in res:
+            print r
 
 
 if __name__ == '__main__':
@@ -420,5 +428,7 @@ if __name__ == '__main__':
     # res = w.wset(tablename='futurecc', startdate='2018-01-01', enddate='2018-10-19', wind_code='TA.CZC')
     # print res
 
-    a.getDateSeries(collection='DateDB', cmd='SHSE', frequecy='Daily')
+    # a.getDateSeries(collection='DateDB', cmd='SHSE', frequecy='Daily')
+    a.combineMainContract(source_collection='FuturesMD', target_collection='DerivDB', cmd='TA', method='1MonPrevious')
+
 

@@ -17,6 +17,7 @@ collection:
   - EDB
   - ICEPrice
   - DateDB
+  - DerivDB
 
 FuturesMD:
   -
@@ -284,4 +285,7 @@ ICEPrice:
     unit: 美元/桶
     path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\Gasoil10.csv"
 
+DerivDB:
+  -
+    func: combineMainContract
 

@@ -8,7 +8,7 @@ import yaml
 
 ins = DataSaving()
 
-f = open('config.yaml')
+f = open('test.yaml')
 yaml_content = yaml.load(f)
 fut_wind = yaml_content['WIND']['FUTURES_MD']
 
