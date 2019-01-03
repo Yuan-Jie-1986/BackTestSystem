@@ -34,6 +34,7 @@ if __name__ == '__main__':
     a = MA_ATR()
     wgtsDict = a.strategy()
     wgtsDict = a.wgtsProcess(wgtsDict)
+    wgtsDict = a.wgtsStandardization(wgtsDict)
     a.displayResult(wgtsDict, saveLocal=True)
 
 

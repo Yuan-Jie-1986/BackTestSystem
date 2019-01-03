@@ -91,11 +91,9 @@ class BasisSpread(BacktestSys):
 if __name__ == '__main__':
     a = BasisSpread()
     wgtsDict = a.strategy()
-    print wgtsDict
-    a.wgtsProcess(wgtsDict)
-    print wgtsDict
-    a.wgtsStandardization(wgtsDict)
-    print wgtsDict
-    # a.displayResult(wgtsDict, saveLocal=True)
+    wgtsDict = a.wgtsProcess(wgtsDict)
+    wgtsDict = a.wgtsStandardization(wgtsDict)
+
+    a.displayResult(wgtsDict, saveLocal=True)
 
 

@@ -22,6 +22,7 @@ if __name__ == '__main__':
 
     c = BacktestSys()
     final_wgt = c.wgtsProcess(final_wgt)
+    final_wgt = c.wgtsStandardization(final_wgt)
     c.displayResult(wgtsDict=final_wgt, saveLocal=True)
 
 

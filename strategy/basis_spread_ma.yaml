@@ -199,7 +199,7 @@ margin_ratio:
   BU.SHF: 0.07
   V.DCE: 0.07
 
-tcost: 1
+tcost: 0
 
 tcost_list:
   TA.CZC:
