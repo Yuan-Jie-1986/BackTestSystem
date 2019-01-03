@@ -372,15 +372,26 @@ class BacktestSys(object):
         cls_df.index = self.dt
         for c in cls_df:
             cls_df[c] *= self.unit[self.category[c]]
-        value_df = cls_df * np.sign(abs(wgts_df))  # 合约价值与是否持仓相乘
-        value_df[value_df == 0] = np.nan
-        value_df = 1e6 / value_df  # 合约价值的倒数
+        cls_df = cls_df * np.sign(abs(wgts_df))  # 合约价值与是否持仓相乘
+        cls_df[cls_df == 0] = np.nan
+        value_df = 1e6 / cls_df  # 合约价值的倒数
         value_min = value_df.min(axis=1, skipna=True)
         ratio_df = pd.DataFrame()
         for c in value_df:
             ratio_df[c] = value_df[c] / value_min
-        print ratio_df
-        print ratio_df.astype('int')
+
+        value_df = cls_df * ratio_df
+        base_series = self.capital / value_df.sum(axis=1, skipna=True)
+        base_series[np.isinf(base_series)] = 0.
+        for c in ratio_df:
+            ratio_df[c] *= base_series
+        ratio_df.fillna(0, inplace=True)
+        ratio_df = ratio_df * np.sign(wgts_df)
+        ratio_df = ratio_df.astype('float')
+        ratio_df = ratio_df.round(decimals=0)
+        wgtsDict = ratio_df.to_dict(orient='list')
+        return wgtsDict
+
 
 
 
@@ -393,7 +404,7 @@ class BacktestSys(object):
         # 需要注意的问题是传入的参数如果是字典，那么可能会改变该字典
         for k, v in wgtsDict.items():
             if len(v) != len(self.dt):
-                print u'%s的权重向量与时间向量长度不一致' % k
+                print u'%s的权重向量与时间向量长度不一致，%s的权重向量长度为%d，时间向量的长度为%d' % (k, k, len(v), len(self.dt))
                 raise Exception(u'权重向量与时间向量长度不一致')
         pnl_daily = np.zeros_like(self.dt).astype('float')
         margin_occ_daily = np.zeros_like(self.dt).astype('float')
@@ -791,12 +802,14 @@ class BacktestSys(object):
         plt.show()
 
     def showBTResult(self, net_value):
-        rtn, vol, sharpe, dd = self.calcIndicator(net_value)
+        rtn, vol, sharpe, dd, dds, dde = self.calcIndicator(net_value)
         print '==============回测结果==============='
         print '年化收益率：', rtn
         print '年化波动率：', vol
         print '夏普比率：', sharpe
         print '最大回撤：', dd
+        print '最大回撤起始时间：', dds
+        print '最大回撤结束时间：', dde
         print '最终资金净值：', net_value[-1]
 
     def calcIndicator(self, net_value):
@@ -809,8 +822,11 @@ class BacktestSys(object):
         index_end = np.argmax(np.maximum.accumulate(net_value) - net_value)
         index_start = np.argmax(net_value[:index_end])
         max_drawdown = net_value[index_end] - net_value[index_start]
+        # 最大回撤时间段
+        max_drawdown_start = self.dt[index_start]
+        max_drawdown_end = self.dt[index_end]
 
-        return annual_rtn, annual_std, sharpe, max_drawdown
+        return annual_rtn, annual_std, sharpe, max_drawdown, max_drawdown_start, max_drawdown_end
 
 
 
