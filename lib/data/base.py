@@ -401,6 +401,13 @@ class DataSaving(object):
         source = self.db[source_collection]
         target = self.db[target_collection]
         info_source = self.db['Information']
+        dt_source = self.db['DateDB']
+
+        projectionFields = ['date']
+        res = dt_source.find(projectionFields).sort('date', pymongo.ASCENDING)
+        for r in res:
+            print r
+
 
         ptn1 = re.compile('[A-Z]+(?=\.)')
         cmd1 = ptn1.search(cmd).group()
@@ -409,15 +416,17 @@ class DataSaving(object):
 
         month_list = ['%02d' % i for i in month_list]
         month_re = '|'.join(month_list)
-        print month_re
-        print '\A%s(?=\d+).+(%s)(?=\.).+(?<=[\d+\.])%s\Z' % (cmd1, month_re, cmd2)
-
         queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(%s)(?=\.).+(?<=[\d+\.])%s\Z' % (cmd1, month_re, cmd2)}}
         projectionFields = ['wind_code', 'last_trade_date', 'contract_issue_date']
         res = info_source.find(queryArgs, projectionFields)
-        df_res = pd.DataFrame.from_records(res)
+        res_copy = []
+        for r in res:
+            yr = r['last_trade_date'].year
+            mon = r['last_trade_date'].month
+            r['switch_date'] = datetime(yr, mon, 1) - timedelta(days=1)
+            res_copy.append(r)
+        df_res = pd.DataFrame.from_records(res_copy)
         df_res.drop(columns=['_id'], inplace=True)
-        print df_res
 
         # 针对已有的合约交易日期，去重之后，得到该品种的所有交易日期
         queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(?<=[\d+\.])%s\Z' % (cmd1, cmd2)}}
@@ -427,12 +436,11 @@ class DataSaving(object):
         df_trade.drop(columns=['_id'], inplace=True)
         df_trade.drop_duplicates(inplace=True)
         df_trade.index = range(len(df_trade))
-        df_trade.join(df_res[['last_trade_date', 'wind_code']],)
-        pd.concat()
+        df1 = pd.merge(left=df_trade, right=df_res, left_on='date', right_on='last_trade_date', how='outer')
+        df1.fillna(method='bfill', inplace=True)
+        # print df1
 
-
-
-
+        # pd.concat([df_trade, df_res])
 
 if __name__ == '__main__':
     # DataSaving().getFuturesPriceAuto(security='M')
@@ -446,7 +454,7 @@ if __name__ == '__main__':
     # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
     # DataSaving().getFuturePriceFromRT('LCO')
     a = DataSaving(host='localhost', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
-                   log_path="F:\\CBNB\\CBNB\\BackTestSystem\\data_saving.log")
+                   log_path="E:\\CBNB\\BackTestSystem\\data_saving.log")
     # a.getFuturesInfoFromWind(collection='Information', cmd='BU.SHF')
     # a.getFuturePriceFromWind('FuturesMD', 'TA.CZC', alldaytrade=0)
     # a.getPriceFromRT('FuturesMD', cmd='LCOc1', type='futures')
