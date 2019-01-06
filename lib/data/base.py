@@ -2,6 +2,7 @@
 import pymongo
 from WindPy import w
 import pandas as pd
+import numpy as np
 from datetime import datetime, date, timedelta
 import pprint
 import sys
@@ -124,9 +125,11 @@ class DataSaving(object):
                 elif dt_l < searchRes['last_trade_date']:
                     start_date = dt_l + timedelta(1)
                     if datetime.now().hour < 16 or alldaytrade:
-                        end_date = datetime.today() - timedelta(1)
+                        end_date = min(datetime.today() - timedelta(1), searchRes['last_trade_date'])
+                        # 这里需要注意为啥要增加一个比较，可参考CU0202合约，当时交易到2月8日，但是最后交易日是2月19日，由于春节放假导致的。
                     else:
-                        end_date = datetime.today()
+                        end_date = min(datetime.today(), searchRes['last_trade_date'])
+
 
         if start_date > end_date:
             return
@@ -367,10 +370,13 @@ class DataSaving(object):
             projectionField = ['date']
             searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
             start_date = list(searchRes)[0]['date'] + timedelta(1)
-            end_date = datetime.today()
+            current_year = datetime.today().year
+            end_date = datetime(current_year + 1, 12, 31)
+            # 这里有个问题是每到年末的时候都要重新刷一遍下一年的数据，因为下一年的节假日没有包含在里面，需要去数据库里删除掉
         else:
             start_date = datetime.strptime('2000-01-01', '%Y-%m-%d')
-            end_date = datetime.today()
+            current_year = datetime.today().year
+            end_date = datetime(current_year + 1, 12, 31)
 
         if start_date > end_date:
             return
@@ -397,50 +403,96 @@ class DataSaving(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
-    def combineMainContract(self, source_collection, target_collection, cmd, method, month_list=range(1, 13)):
-        source = self.db[source_collection]
-        target = self.db[target_collection]
-        info_source = self.db['Information']
-        dt_source = self.db['DateDB']
+    def combineMainContract(self, collection, cmd, method, month_list=range(1, 13)):
+        source = self.db['FuturesMD']  # 期货市场价格表
+        target = self.db[collection]
+        info_source = self.db['Information']  # 期货合约信息表
+        dt_source = self.db['DateDB']  # 金融市场交易日期表，使用的SHSE，好像与SHF会有不同。。。。MB，不想改了。。有需要再说
 
+        #  找到金融市场交易日期序列
         projectionFields = ['date']
-        res = dt_source.find(projectionFields).sort('date', pymongo.ASCENDING)
+        res = dt_source.find(projection=projectionFields).sort('date', pymongo.ASCENDING)
+        dt_list = []
         for r in res:
-            print r
-
+            dt_list.append(r['date'])
+        dt_list = np.array(dt_list)
 
         ptn1 = re.compile('[A-Z]+(?=\.)')
         cmd1 = ptn1.search(cmd).group()
         ptn2 = re.compile('(?<=\.)[A-Z]+')
         cmd2 = ptn2.search(cmd).group()
 
-        month_list = ['%02d' % i for i in month_list]
-        month_re = '|'.join(month_list)
-        queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(%s)(?=\.).+(?<=[\d+\.])%s\Z' % (cmd1, month_re, cmd2)}}
-        projectionFields = ['wind_code', 'last_trade_date', 'contract_issue_date']
-        res = info_source.find(queryArgs, projectionFields)
-        res_copy = []
-        for r in res:
-            yr = r['last_trade_date'].year
-            mon = r['last_trade_date'].month
-            r['switch_date'] = datetime(yr, mon, 1) - timedelta(days=1)
-            res_copy.append(r)
-        df_res = pd.DataFrame.from_records(res_copy)
-        df_res.drop(columns=['_id'], inplace=True)
+        #  df_res是符合要求的合约
+        if method == 'LastMonthEnd':
+            month_list = ['%02d' % i for i in month_list]
+            month_re = '|'.join(month_list)
+            queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(%s)(?=\.).+(?<=[\d+\.])%s\Z' % (cmd1, month_re, cmd2)}}
+            projectionFields = ['wind_code', 'last_trade_date']
+            res = info_source.find(queryArgs, projectionFields)
+            res_copy = []
+            for r in res:
+                yr = r['last_trade_date'].year
+                mon = r['last_trade_date'].month
+                r['switch_date'] = dt_list[dt_list < datetime(yr, mon, 1)][-1]
+                res_copy.append(r)
+            df_res = pd.DataFrame.from_records(res_copy)
+            df_res.drop(columns=['_id'], inplace=True)
 
-        # 针对已有的合约交易日期，去重之后，得到该品种的所有交易日期
-        queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(?<=[\d+\.])%s\Z' % (cmd1, cmd2)}}
-        projectionFields = ['date']
-        res = source.find(queryArgs, projectionFields).sort('date', pymongo.ASCENDING)
-        df_trade = pd.DataFrame.from_records(res)
-        df_trade.drop(columns=['_id'], inplace=True)
-        df_trade.drop_duplicates(inplace=True)
-        df_trade.index = range(len(df_trade))
-        df1 = pd.merge(left=df_trade, right=df_res, left_on='date', right_on='last_trade_date', how='outer')
-        df1.fillna(method='bfill', inplace=True)
-        # print df1
+        queryArgs = {'name': '%s_MC_%s' % (cmd, method)}
+        projectionFields = ['date', 'name']
+        searchRes = target.find_one(queryArgs, projectionFields)
+        # 如果是第一次生成
+        if not searchRes:
+            # 针对已有的合约交易日期，去重之后，得到该品种的所有交易日期
+            queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(?<=[\d+\.])%s\Z' % (cmd1, cmd2)}}
+            projectionFields = ['date']
+            res = source.find(queryArgs, projectionFields).sort('date', pymongo.ASCENDING)
+            df_trade = pd.DataFrame.from_records(res)
+            df_trade.drop(columns=['_id'], inplace=True)
+            df_trade.drop_duplicates(inplace=True)
+            df_trade.index = range(len(df_trade))
+        else:
+            res = target.find(queryArgs, projectionFields).sort('date', pymongo.DESCENDING).limit(1)
+            dt_start = list(res)[0]['date']
+            queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(?<=[\d+\.])%s\Z' % (cmd1, cmd2)}}
+            projectionFields = ['date']
+            res = source.find(queryArgs, projectionFields).sort('date', pymongo.DESCENDING).limit(1)
+            dt_end = list(res)[0]['date']
+            df_trade = pd.DataFrame({'date': dt_list[(dt_list > dt_start) * (dt_list <= dt_end)]})
 
-        # pd.concat([df_trade, df_res])
+        df1 = pd.merge(left=df_trade, right=df_res, left_on='date', right_on='switch_date', sort=True, how='outer')
+        df1[['last_trade_date', 'switch_date', 'wind_code']] = df1[['last_trade_date', 'switch_date', 'wind_code']].\
+            fillna(method='bfill')
+        df1.dropna(inplace=True)
+
+        df_final = pd.DataFrame()
+        for c in df1['wind_code'].unique():
+            queryArgs = {'wind_code': c}
+            res = source.find(queryArgs).sort('date', pymongo.ASCENDING)
+            df_c = pd.DataFrame.from_records(res)
+            df_c.dropna(axis=1, how='all', inplace=True)
+            df_c.drop(columns=['_id', 'wind_code', 'update_time'], inplace=True)
+            df_n = pd.merge(left=df1[df1['wind_code'] == c], right=df_c, on='date', how='left')
+            df_final = pd.concat([df_final, df_n], ignore_index=True)
+
+        insert_dict = df_final.to_dict(orient='records')
+
+        count = 1
+        total = len(insert_dict)
+        for r in insert_dict:
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+            r['name'] = '%s_MC_%s' % (cmd, method)
+            r['remain_days'] = float((r['last_trade_date'] - r['date']).days)
+            r['update_time'] = datetime.now()
+            # print r
+            target.insert_one(r)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
 
 if __name__ == '__main__':
     # DataSaving().getFuturesPriceAuto(security='M')
@@ -454,7 +506,7 @@ if __name__ == '__main__':
     # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
     # DataSaving().getFuturePriceFromRT('LCO')
     a = DataSaving(host='localhost', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
-                   log_path="E:\\CBNB\\BackTestSystem\\data_saving.log")
+                   log_path="F:\\CBNB\\CBNB\\BackTestSystem\\data_saving.log")
     # a.getFuturesInfoFromWind(collection='Information', cmd='BU.SHF')
     # a.getFuturePriceFromWind('FuturesMD', 'TA.CZC', alldaytrade=0)
     # a.getPriceFromRT('FuturesMD', cmd='LCOc1', type='futures')
@@ -463,7 +515,7 @@ if __name__ == '__main__':
     # print res
 
     # a.getDateSeries(collection='DateDB', cmd='SHSE', frequecy='Daily')
-    a.combineMainContract(source_collection='FuturesMD', target_collection='DerivDB', cmd='TA.CZC', method='1MonPrevious',
+    a.combineMainContract(collection='DerivDB', cmd='TA.CZC', method='LastMonthEnd',
                           month_list=[1, 5, 9])
 
 
