@@ -472,13 +472,14 @@ class DataSaving(object):
             df_c = pd.DataFrame.from_records(res)
             df_c.dropna(axis=1, how='all', inplace=True)
             df_c.drop(columns=['_id', 'wind_code', 'update_time'], inplace=True)
-            df_n = pd.merge(left=df1[df1['wind_code'] == c], right=df_c, on='date', how='left')
-            df_final = pd.concat([df_final, df_n], ignore_index=True)
+            df_n = pd.merge(left=df1[df1['wind_code'] == c], right=df_c, on='date', how='left', sort=True)
+            df_final = pd.concat([df_final, df_n], ignore_index=True, sort=False)
 
         insert_dict = df_final.to_dict(orient='records')
 
         count = 1
         total = len(insert_dict)
+        print u'生成主力合约%s_MC_%s' % (cmd, method)
         for r in insert_dict:
             process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
@@ -486,7 +487,6 @@ class DataSaving(object):
             r['name'] = '%s_MC_%s' % (cmd, method)
             r['remain_days'] = float((r['last_trade_date'] - r['date']).days)
             r['update_time'] = datetime.now()
-            # print r
             target.insert_one(r)
             count += 1
 
@@ -506,7 +506,7 @@ if __name__ == '__main__':
     # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
     # DataSaving().getFuturePriceFromRT('LCO')
     a = DataSaving(host='localhost', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
-                   log_path="F:\\CBNB\\CBNB\\BackTestSystem\\data_saving.log")
+                   log_path="E:\\CBNB\\BackTestSystem\\data_saving.log")
     # a.getFuturesInfoFromWind(collection='Information', cmd='BU.SHF')
     # a.getFuturePriceFromWind('FuturesMD', 'TA.CZC', alldaytrade=0)
     # a.getPriceFromRT('FuturesMD', cmd='LCOc1', type='futures')

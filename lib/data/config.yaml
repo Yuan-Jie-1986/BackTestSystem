@@ -8,16 +8,16 @@ host: localhost
 port: 27017
 user: yuanjie
 pwd: yuanjie
-log_path: "F:\\CBNB\\CBNB\\BackTestSystem\\data_saving.log"
+log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
 #  - Information
-  - FuturesMD
-  - SpotMD
-  - EDB
-  - ICEPrice
-  - DateDB
-#  - DerivDB
+#  - FuturesMD
+#  - SpotMD
+#  - EDB
+#  - ICEPrice
+#  - DateDB
+  - DerivDB
 
 FuturesMD:
   -
@@ -138,7 +138,7 @@ SpotMD:
     frequency: daily
     cmd: LL神华煤化工价格
     unit: 元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\LL.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\LL.csv"
 
   -
     source: ManualInput
@@ -146,7 +146,7 @@ SpotMD:
     frequency: daily
     cmd: 甲醇华东（江苏地区）
     unit: 元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MA.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MA.csv"
 
   -
     source: ManualInput
@@ -154,7 +154,7 @@ SpotMD:
     frequency: daily
     cmd: PP华东现货价
     unit: 元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PP.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PP.csv"
 
   -
     source: ManualInput
@@ -162,7 +162,7 @@ SpotMD:
     frequency: daily
     cmd: TA内盘人民币价
     unit: 元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PTA.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PTA.csv"
 
   -
     source: ManualInput
@@ -170,7 +170,7 @@ SpotMD:
     frequency: daily
     cmd: 现货（常州sg-5低端价）
     unit: 元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PVC.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PVC.csv"
 
   -
     source: ManualInput
@@ -178,7 +178,7 @@ SpotMD:
     frequency: daily
     cmd: 国产重交-长三角
     unit: 元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\沥青.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\沥青.csv"
 
 
   - source: ManualInput
@@ -187,7 +187,7 @@ SpotMD:
     cmd: MEG
     area: 华东主港
     unit: 元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MEG.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MEG.csv"
 
   - source: ManualInput
     func: getDataFromCSV
@@ -195,7 +195,7 @@ SpotMD:
     cmd: PX
     area: CFR中国
     unit: 美元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PX.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PX.csv"
 
   - source: ManualInput
     func: getDataFromCSV
@@ -203,7 +203,7 @@ SpotMD:
     cmd: BZ
     area: FOB韩国
     unit: 美元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\BZ.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\BZ.csv"
 
 EDB:
   - {func: getEDBFromWind, source: WIND, cmd: M0067855, edb_name: "即期汇率:美元兑人民币", unit: null, frequency: Daily}
@@ -259,7 +259,7 @@ ICEPrice:
     frequency: daily
     cmd: MOPJ
     unit: 美元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MOPJ.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MOPJ.csv"
 
   -
     source: ManualInput
@@ -267,7 +267,7 @@ ICEPrice:
     frequency: daily
     cmd: MOGAS
     unit: 美元/桶
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MOGAS.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MOGAS.csv"
 
   -
     source: ManualInput
@@ -275,7 +275,7 @@ ICEPrice:
     frequency: daily
     cmd: LPG
     unit: 美元/吨
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\LPG.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\LPG.csv"
 
   -
     source: ManualInput
@@ -283,9 +283,23 @@ ICEPrice:
     frequency: daily
     cmd: Gasoil10
     unit: 美元/桶
-    path: "F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\Gasoil10.csv"
+    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\Gasoil10.csv"
 
 DerivDB:
   -
     func: combineMainContract
+    cmd: [TA.CZC, L.DCE, PP.DCE, MA.CZC, J.DCE, JM.DCE, V.DCE, I.DCE, ZC.CZC]
+    method: LastMonthEnd
+    month_list: [1, 5, 9]
 
+  -
+    func: combineMainContract
+    cmd: [RB.SHF, HC.SHF]
+    method: LastMonthEnd
+    month_list: [1, 5, 10]
+
+  -
+    func: combineMainContract
+    cmd: [BU.SHF]
+    method: LastMonthEnd
+    month_list: [6, 12]
