@@ -5,8 +5,8 @@ db_name: CBNB
 user: yuanjie
 pwd: yuanjie
 
-start_date: '20130101'
-end_date: '20181110'
+start_date: '20000101'
+end_date: '20181201'
 capital: 1e8
 backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
