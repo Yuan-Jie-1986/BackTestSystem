@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pprint
 import pandas as pd
+import talib
 
 class BasisSpreadAnalysis(BacktestSys):
     def __init__(self):
@@ -24,13 +25,18 @@ class BasisSpreadAnalysis(BacktestSys):
             else:
                 spot = self.data[nm].values()[0]
         spot = pd.DataFrame(spot).fillna(method='ffill').values.flatten()
+        slope_period = 20
+        spot_slope = talib.LINEARREG_SLOPE(spot, timeperiod=slope_period)
+        fut_slope = talib.LINEARREG_SLOPE(futures, timeperiod=slope_period)
+        slope_diff = spot_slope - fut_slope
 
         basis = spot - futures
         ## 分析剩余天数对收益的影响情况
         times = 0
-        pre_days = 30
+        pre_days = 40
         res_dict = {}
         open_flag = False
+
         for i in np.arange(len(self.dt)):
 
             if np.isnan(basis[i]) or np.isnan(spot[i]) or np.isnan(futures[i]):
@@ -44,9 +50,16 @@ class BasisSpreadAnalysis(BacktestSys):
                                    'fut_open': futures[i],
                                    'dt_open': self.dt[i],
                                    'remain_open': remains[i],
-                                   'direction': 1 if basis[i] > 0 else -1}
+                                   'direction': 1 if basis[i] > 0 else -1,
+                                   'spot_open': spot[i],
+                                   'spot_slope': spot_slope[i],
+                                   'fut_slope': fut_slope[i],
+                                   'slope_diff': slope_diff[i],
+                                   'cmd': cmd,
+                                   'count': times}
                 open_flag = True
-
+                # plt.plot(spot[i-slope_period+1: i+1], color='r')
+                # plt.plot(futures[i-slope_period+1: i+1], color='k')
 
             elif open_flag and (i == len(self.dt) - 1 or remains[i] < remains[i + 1]):
                 if times not in res_dict or 'dt_close' in res_dict[times]:
@@ -54,6 +67,7 @@ class BasisSpreadAnalysis(BacktestSys):
                     raise Exception(u'没有之前的开仓数据')
                 res_dict[times]['basis_close'] = basis[i]
                 res_dict[times]['fut_close'] = futures[i]
+                res_dict[times]['spot_close'] = spot[i]
                 res_dict[times]['dt_close'] = self.dt[i]
                 res_dict[times]['remain_close'] = remains[i]
                 res_dict[times]['basis_rtn'] = (res_dict[times]['basis_close'] - res_dict[times]['basis_open']) * \
@@ -61,6 +75,12 @@ class BasisSpreadAnalysis(BacktestSys):
                 res_dict[times]['fut_rtn'] = (res_dict[times]['fut_close'] - res_dict[times]['fut_open']) * \
                                                res_dict[times]['direction']
                 open_flag = False
+
+                pprint.pprint(res_dict[times])
+                # plt.show()
+
+
+
 
         basis_rtn = []
         fut_rtn = []
@@ -89,7 +109,8 @@ class BasisSpreadAnalysis(BacktestSys):
         print u'Futures准确次数：', FutCorr
         print u'Futures平均盈利：', FutRtn
 
-
+        stats_df = pd.DataFrame.from_dict(res_dict, orient='index')
+        print stats_df
         width = 0.4
         plt.bar(times, basis_rtn, width, color='r', label='BasisRtn')
         plt.bar(times+width, fut_rtn, width, color='k', label='FutRtn')
