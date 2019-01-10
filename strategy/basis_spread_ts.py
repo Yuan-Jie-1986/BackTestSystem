@@ -29,7 +29,7 @@ class BasisSpread(BacktestSys):
                 if patten.search(sub_v):
                     futures_contract = sub_v
                     futures_price = self.data[sub_v]['CLOSE']
-                    futures_remain = self.data[sub_v]['remain_days']
+                    # futures_remain = self.data[sub_v]['remain_days']
                 else:
                     spot_price = self.data[sub_v].values()[0]
                     spot_price_new = np.ones_like(spot_price) * np.nan
@@ -48,6 +48,15 @@ class BasisSpread(BacktestSys):
 
             # 根据基差和到期日进行单边交易
             for k in basis_spread:
+                if self.data[k]['remain_days'][i] == 30:
+                    if basis_spread[k][i] > 0:
+                        wgtsDict[k][i] = -1.
+                    if basis_spread[k][i] < 0:
+                        wgtsDict[k][i] = 1.
+                elif self.data[k]['remain_days'][i] < 30:
+                    wgtsDict[k][i] = wgtsDict[k][i-1]
+
+
 
 
             # # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
