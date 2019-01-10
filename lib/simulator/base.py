@@ -186,7 +186,6 @@ class TradeRecordByDay(object):
 
         for k, v in self.holdPosition.items():
             if 'volume' in v:
-
                 if 'PRECLOSE' not in self.mkdata[k]:
                     print self.dt, self.mkdata[k]
                     raise Exception(u'请检查传入的市场数据是否正确')
@@ -220,9 +219,6 @@ class TradeRecordByDay(object):
                         raise Exception(u'交易费用为nan，请检查当天的量价数据是否有问题')
 
                     self.daily_pnl = self.daily_pnl + new_pnl - nt.trade_cost
-
-
-
                     self.holdPosition[k]['volume'] = self.holdPosition[k]['volume'] + nt.trade_volume * \
                                                      nt.trade_direction
 
@@ -687,7 +683,7 @@ class BacktestSys(object):
                                 uncovered_record[k].remove(tr)
                             break
                     if uncovered_record[k]:
-                        print self.dt[i], uncovered_record[k][0]
+                        print self.dt[i], k, uncovered_record[k][0]
                         raise Exception(u'请检查，依然有未平仓的交易，无法新开反向仓')
 
                     count += 1
@@ -747,7 +743,8 @@ class BacktestSys(object):
         pnl, margin_occ, value = self.getPnlDaily(wgtsDict)
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
         margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
-        leverage = value / (self.capital + np.cumsum(pnl))
+        # leverage = value / (self.capital + np.cumsum(pnl))
+        leverage = value / self.capital
         trade_record = self.statTrade(wgtsDict)
         self.showBTResult(nv)
 
