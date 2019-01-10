@@ -81,12 +81,10 @@ class BasisSpreadAnalysis(BacktestSys):
                     # pprint.pprint(res_dict[times])
                     # plt.show()
 
-
-
-
             basis_rtn = []
             fut_rtn = []
             times = []
+
             for d in res_dict:
                 times.append(d)
                 basis_rtn.append(res_dict[d]['basis_rtn'])
@@ -103,6 +101,7 @@ class BasisSpreadAnalysis(BacktestSys):
             FutPct = FutCorr * 1. / len(fut_rtn)
             FutRtn = np.mean(fut_rtn)
 
+
             print u'==========%s的统计结果===========' % cmd
             print u'总次数：', total
             print u'Basis准确率：', BasisPct
@@ -111,6 +110,31 @@ class BasisSpreadAnalysis(BacktestSys):
             print u'Futures准确率：', FutPct
             print u'Futures准确次数：', FutCorr
             print u'Futures平均盈利：', FutRtn
+
+            buy_rtn = np.array([res_dict[d]['fut_rtn'] for d in res_dict if res_dict[d]['direction'] == 1])
+            if len(buy_rtn) > 0:
+                buy_counter = len(buy_rtn)
+                buy_correct = len(buy_rtn[buy_rtn > 0])
+                buy_correct_pct = buy_correct * 1. / buy_counter
+                buy_rtn_avg = np.mean(buy_rtn)
+                print u'Futures做多次数：', buy_counter
+                print u'Futures做多做对次数：', buy_correct
+                print u'Futures做多准确率：', buy_correct_pct
+                print u'Futures平均做多收益：', buy_rtn_avg
+
+            sell_rtn = np.array([res_dict[d]['fut_rtn'] for d in res_dict if res_dict[d]['direction'] == -1])
+            if len(sell_rtn) > 0:
+                sell_counter = len(sell_rtn)
+                sell_correct = len(sell_rtn[sell_rtn > 0])
+                sell_correct_pct = sell_correct * 1. / sell_counter
+                sell_rtn_avg = np.mean(sell_rtn)
+
+                print u'Futures做空次数：', sell_counter
+                print u'Futures做空做对次数：', sell_correct
+                print u'Futures做空准确率：', sell_correct_pct
+                print u'Futures平均做空收益：', sell_rtn_avg
+
+
 
             stats_df = pd.concat([stats_df, pd.DataFrame.from_dict(res_dict, orient='index')])
 
@@ -123,12 +147,144 @@ class BasisSpreadAnalysis(BacktestSys):
             # plt.show()
             # pprint.pprint(res_dict)
 
+        rtn_total = stats_df['fut_rtn'].values.flatten()
+        rtn_counter = len(rtn_total)
+        rtn_pos = len(rtn_total[rtn_total > 0])
+        rtn_neg = len(rtn_total[rtn_total < 0])
         print u'======================='
-        print 
-        print stats_df
-        plt.hist(stats_df['fut_rtn'].values, bins=100)
+        print u'总数：', rtn_counter
+        print u'正收益个数：', rtn_pos
+        print u'负收益个数：', rtn_neg
+        rtn_buy_total = stats_df[stats_df['direction'] == 1]['fut_rtn'].values.flatten()
+        rtn_buy_counter = len(rtn_buy_total)
+        rtn_buy_pos = len(rtn_buy_total[rtn_buy_total > 0])
+        rtn_buy_pos_pct = rtn_buy_pos * 1. / rtn_buy_counter
+        rtn_buy_avg = np.mean(rtn_buy_total)
+        print u'======================='
+        print u'做多次数：', rtn_buy_counter
+        print u'做多正确次数：', rtn_buy_pos
+        print u'做多正确率：', rtn_buy_pos_pct
+        print u'做多平均收益：', rtn_buy_avg
+        rtn_sell_total = stats_df[stats_df['direction'] == -1]['fut_rtn'].values.flatten()
+        rtn_sell_counter = len(rtn_sell_total)
+        rtn_sell_pos = len(rtn_sell_total[rtn_sell_total > 0])
+        rtn_sell_pos_pct = rtn_sell_pos * 1. / rtn_sell_counter
+        rtn_sell_avg = np.mean(rtn_sell_total)
+        print u'======================='
+        print u'做空次数：', rtn_sell_counter
+        print u'做空正确次数：', rtn_sell_pos
+        print u'做空正确率：', rtn_sell_pos_pct
+        print u'做空平均收益：', rtn_sell_avg
 
-        plt.show()
+        ## 统计基差与现货趋势相同的时候交易结果
+        rtn_bs_trend_total = stats_df[stats_df['direction'] * stats_df['spot_slope'] > 0.]['fut_rtn'].values.flatten()
+        rtn_bs_trend_count = len(rtn_bs_trend_total)
+        rtn_bs_trend_pos = len(rtn_bs_trend_total[rtn_bs_trend_total > 0.])
+        rtn_bs_trend_pos_pct = rtn_bs_trend_pos * 1. / rtn_bs_trend_count
+        rtn_bs_trend_avg = np.mean(rtn_bs_trend_total)
+        print u'======================='
+        print u'基差与趋势相同的交易次数：', rtn_bs_trend_count
+        print u'基差与趋势相同的正确交易次数：', rtn_bs_trend_pos
+        print u'基差与趋势相同的交易正确率：', rtn_bs_trend_pos_pct
+        print u'基差与趋势相同的交易平均收益：', rtn_bs_trend_avg
+
+        ## 统计基差与现货趋势相反的时候交易结果
+        rtn_bs_trend_total = stats_df[stats_df['direction'] * stats_df['spot_slope'] < 0.]['fut_rtn'].values.flatten()
+        rtn_bs_trend_count = len(rtn_bs_trend_total)
+        rtn_bs_trend_pos = len(rtn_bs_trend_total[rtn_bs_trend_total > 0.])
+        rtn_bs_trend_pos_pct = rtn_bs_trend_pos * 1. / rtn_bs_trend_count
+        rtn_bs_trend_avg = np.mean(rtn_bs_trend_total)
+        print u'======================='
+        print u'基差与趋势相反的交易次数：', rtn_bs_trend_count
+        print u'基差与趋势相反的正确交易次数：', rtn_bs_trend_pos
+        print u'基差与趋势相反的交易正确率：', rtn_bs_trend_pos_pct
+        print u'基差与趋势相反的交易平均收益：', rtn_bs_trend_avg
+
+        ## 考虑基差与趋势差相同的情况
+        rtn_bs_trendiff_total = stats_df[stats_df['direction'] * stats_df['slope_diff'] > 0.]['fut_rtn'].values.flatten()
+        rtn_bs_trendiff_count = len(rtn_bs_trendiff_total)
+        rtn_bs_trendiff_pos = len(rtn_bs_trendiff_total[rtn_bs_trendiff_total > 0.])
+        rtn_bs_trendiff_pos_pct = rtn_bs_trendiff_pos * 1. / rtn_bs_trendiff_count
+        rtn_bs_trendiff_avg = np.mean(rtn_bs_trendiff_total)
+        print u'======================='
+        print u'基差与趋势差相同的交易次数：', rtn_bs_trendiff_count
+        print u'基差与趋势差相同的正确交易次数：', rtn_bs_trendiff_pos
+        print u'基差与趋势差相同的交易正确率：', rtn_bs_trendiff_pos_pct
+        print u'基差与趋势差相同的交易平均收益：', rtn_bs_trendiff_avg
+
+        ## 考虑基差与趋势差相反的情况
+        rtn_bs_trendiff_total = stats_df[stats_df['direction'] * stats_df['slope_diff'] < 0.][
+            'fut_rtn'].values.flatten()
+        rtn_bs_trendiff_count = len(rtn_bs_trendiff_total)
+        rtn_bs_trendiff_pos = len(rtn_bs_trendiff_total[rtn_bs_trendiff_total > 0.])
+        rtn_bs_trendiff_pos_pct = rtn_bs_trendiff_pos * 1. / rtn_bs_trendiff_count
+        rtn_bs_trendiff_avg = np.mean(rtn_bs_trendiff_total)
+        print u'======================='
+        print u'基差与趋势差相反的交易次数：', rtn_bs_trendiff_count
+        print u'基差与趋势差相反的正确交易次数：', rtn_bs_trendiff_pos
+        print u'基差与趋势差相反的交易正确率：', rtn_bs_trendiff_pos_pct
+        print u'基差与趋势差相反的交易平均收益：', rtn_bs_trendiff_avg
+
+        ## 考虑基差与趋势相同、与趋势差相反的情况
+        rtn_bs_trend_trendiff_total = stats_df[(stats_df['direction'] * stats_df['slope_diff'] < 0.) &
+                                               (stats_df['direction'] * stats_df['spot_slope'] > 0.)][
+            'fut_rtn'].values.flatten()
+        rtn_bs_trend_trendiff_count = len(rtn_bs_trend_trendiff_total)
+        rtn_bs_trend_trendiff_pos = len(rtn_bs_trend_trendiff_total[rtn_bs_trend_trendiff_total > 0.])
+        rtn_bs_trend_trendiff_pos_pct = rtn_bs_trend_trendiff_pos * 1. / rtn_bs_trend_trendiff_count
+        rtn_bs_trend_trendiff_avg = np.mean(rtn_bs_trend_trendiff_total)
+        print u'======================='
+        print u'基差与趋势差相反、趋势相同的交易次数：', rtn_bs_trend_trendiff_count
+        print u'基差与趋势差相反、趋势相同的正确交易次数：', rtn_bs_trend_trendiff_pos
+        print u'基差与趋势差相反、趋势相同的交易正确率：', rtn_bs_trend_trendiff_pos_pct
+        print u'基差与趋势差相反、趋势相同的交易平均收益：', rtn_bs_trend_trendiff_avg
+
+        ## 考虑基差与趋势相同、与趋势差相同的情况
+        rtn_bs_trend_trendiff_total = stats_df[(stats_df['direction'] * stats_df['slope_diff'] > 0.) &
+                                               (stats_df['direction'] * stats_df['spot_slope'] > 0.)][
+            'fut_rtn'].values.flatten()
+        rtn_bs_trend_trendiff_count = len(rtn_bs_trend_trendiff_total)
+        rtn_bs_trend_trendiff_pos = len(rtn_bs_trend_trendiff_total[rtn_bs_trend_trendiff_total > 0.])
+        rtn_bs_trend_trendiff_pos_pct = rtn_bs_trend_trendiff_pos * 1. / rtn_bs_trend_trendiff_count
+        rtn_bs_trend_trendiff_avg = np.mean(rtn_bs_trend_trendiff_total)
+        print u'======================='
+        print u'基差与趋势差相同、趋势相同的交易次数：', rtn_bs_trend_trendiff_count
+        print u'基差与趋势差相同、趋势相同的正确交易次数：', rtn_bs_trend_trendiff_pos
+        print u'基差与趋势差相同、趋势相同的交易正确率：', rtn_bs_trend_trendiff_pos_pct
+        print u'基差与趋势差相同、趋势相同的交易平均收益：', rtn_bs_trend_trendiff_avg
+
+        ## 考虑基差与趋势相反、与趋势差相同的情况
+        rtn_bs_trend_trendiff_total = stats_df[(stats_df['direction'] * stats_df['slope_diff'] > 0.) &
+                                               (stats_df['direction'] * stats_df['spot_slope'] < 0.)][
+            'fut_rtn'].values.flatten()
+        rtn_bs_trend_trendiff_count = len(rtn_bs_trend_trendiff_total)
+        rtn_bs_trend_trendiff_pos = len(rtn_bs_trend_trendiff_total[rtn_bs_trend_trendiff_total > 0.])
+        rtn_bs_trend_trendiff_pos_pct = rtn_bs_trend_trendiff_pos * 1. / rtn_bs_trend_trendiff_count
+        rtn_bs_trend_trendiff_avg = np.mean(rtn_bs_trend_trendiff_total)
+        print u'======================='
+        print u'基差与趋势差相同、趋势相反的交易次数：', rtn_bs_trend_trendiff_count
+        print u'基差与趋势差相同、趋势相反的正确交易次数：', rtn_bs_trend_trendiff_pos
+        print u'基差与趋势差相同、趋势相反的交易正确率：', rtn_bs_trend_trendiff_pos_pct
+        print u'基差与趋势差相同、趋势相反的交易平均收益：', rtn_bs_trend_trendiff_avg
+
+        ## 考虑基差与趋势相反、与趋势差相反的情况
+        rtn_bs_trend_trendiff_total = stats_df[(stats_df['direction'] * stats_df['slope_diff'] < 0.) &
+                                               (stats_df['direction'] * stats_df['spot_slope'] < 0.)][
+            'fut_rtn'].values.flatten()
+        rtn_bs_trend_trendiff_count = len(rtn_bs_trend_trendiff_total)
+        rtn_bs_trend_trendiff_pos = len(rtn_bs_trend_trendiff_total[rtn_bs_trend_trendiff_total > 0.])
+        rtn_bs_trend_trendiff_pos_pct = rtn_bs_trend_trendiff_pos * 1. / rtn_bs_trend_trendiff_count
+        rtn_bs_trend_trendiff_avg = np.mean(rtn_bs_trend_trendiff_total)
+        print u'======================='
+        print u'基差与趋势差相反、趋势相反的交易次数：', rtn_bs_trend_trendiff_count
+        print u'基差与趋势差相反、趋势相反的正确交易次数：', rtn_bs_trend_trendiff_pos
+        print u'基差与趋势差相反、趋势相反的交易正确率：', rtn_bs_trend_trendiff_pos_pct
+        print u'基差与趋势差相反、趋势相反的交易平均收益：', rtn_bs_trend_trendiff_avg
+
+        # print stats_df
+        # plt.hist(stats_df['fut_rtn'].values, bins=100)
+
+        # plt.show()
         # stats_df.to_csv('basis_spread_40days.csv')
         # ## 绘图
         # plt.subplot(311)
