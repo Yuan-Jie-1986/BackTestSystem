@@ -50,9 +50,9 @@ class BasisSpread(BacktestSys):
             for k in basis_spread:
                 if self.data[k]['remain_days'][i] == 30:
                     if basis_spread[k][i] > 0:
-                        wgtsDict[k][i] = -1.
-                    if basis_spread[k][i] < 0:
                         wgtsDict[k][i] = 1.
+                    if basis_spread[k][i] < 0:
+                        wgtsDict[k][i] = -1.
                 elif self.data[k]['remain_days'][i] < 30:
                     wgtsDict[k][i] = wgtsDict[k][i-1]
 
