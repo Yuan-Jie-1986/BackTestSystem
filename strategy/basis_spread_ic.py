@@ -3,6 +3,7 @@
 from lib.simulator.base import BacktestSys
 import numpy as np
 import re
+import pandas as pd
 
 class BasisSpread(BacktestSys):
     def __init__(self):
@@ -22,8 +23,9 @@ class BasisSpread(BacktestSys):
 
         basis_spread = {}
         basis_spread_ratio = {}
-        rtn_period = 20
+        rtn_period = 5
         rtn_dict = {}
+        bs_rtn_dict = {}
         wgtsDict = {}
         patten = re.compile('_MC_LastMonthEnd')  # 用来判断是否为期货
         for k, v in pairs_dict.items():
@@ -31,7 +33,7 @@ class BasisSpread(BacktestSys):
                 if patten.search(sub_v):
                     futures_contract = sub_v
                     futures_price = self.data[sub_v]['CLOSE']
-                    rtn_dict[futures_contract] = np.ones_like(futures_price)
+                    rtn_dict[futures_contract] = np.ones_like(futures_price) * np.nan
                     rtn_dict[futures_contract][rtn_period:] = futures_price[rtn_period:] / futures_price[:-rtn_period] - 1.
                 else:
                     spot_price = self.data[sub_v].values()[0]
@@ -43,11 +45,32 @@ class BasisSpread(BacktestSys):
 
             basis_spread[futures_contract] = spot_price_new - futures_price
             basis_spread_ratio[futures_contract] = 1 - futures_price / spot_price_new
+            # basis_spread_ratio[futures_contract] = basis_spread_ratio[futures_contract] * abs(rtn_dict[futures_contract])
             wgtsDict[futures_contract] = np.zeros_like(self.dt)
 
             del futures_contract
 
+        rtn_df = pd.DataFrame.from_dict(rtn_dict, orient='columns')
+        basis_df = pd.DataFrame.from_dict(basis_spread_ratio, orient='columns')
+        basis_df = basis_df.shift(periods=rtn_period)
+        ic_df = rtn_df.corrwith(basis_df, axis=1)
+        ic = ic_df.values.flatten()
+        ic[np.isnan(ic)] = 1.
+
         for i in np.arange(len(self.dt)):
+
+            # # 计算当前的IC值
+            # basis_list = []
+            # rtn_list = []
+            # for k in basis_spread_ratio:
+            #     if i >= rtn_period:
+            #         basis_list.append(basis_spread_ratio[k][i-rtn_period])
+            #         rtn_list.append(rtn_dict[k][i])
+            # basis_list = np.array(basis_list)
+            # rtn_list = np.array(rtn_list)
+            # ic = np.corr
+
+
 
             # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
             bsr_daily = []
@@ -59,7 +82,7 @@ class BasisSpread(BacktestSys):
                 continue
             bsr_series = bsr_daily[~np.isnan(bsr_daily)]
             bsr_series.sort()
-            num_selection = min(3, count / 2)
+            num_selection = min(4, count / 2)
             low_point = bsr_series[num_selection-1]
             high_point = bsr_series[-num_selection]
 
