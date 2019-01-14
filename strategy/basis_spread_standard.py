@@ -55,7 +55,7 @@ class BasisSpread(BacktestSys):
                 continue
             bsr_series = bsr_daily[~np.isnan(bsr_daily)]
             bsr_series.sort()
-            num_selection = min(3, count / 2)
+            num_selection = min(4, count / 2)
             low_point = bsr_series[num_selection-1]
             high_point = bsr_series[-num_selection]
 

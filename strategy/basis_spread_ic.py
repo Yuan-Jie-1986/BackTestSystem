@@ -44,7 +44,7 @@ class BasisSpread(BacktestSys):
                 raise Exception(u'没有期货合约')
 
             basis_spread[futures_contract] = spot_price_new - futures_price
-            basis_spread_ratio[futures_contract] = 1 - futures_price / spot_price_new
+            basis_spread_ratio[futures_contract] = 1. - futures_price / spot_price_new
             # basis_spread_ratio[futures_contract] = basis_spread_ratio[futures_contract] * abs(rtn_dict[futures_contract])
             wgtsDict[futures_contract] = np.zeros_like(self.dt)
 
@@ -58,19 +58,6 @@ class BasisSpread(BacktestSys):
         ic[np.isnan(ic)] = 1.
 
         for i in np.arange(len(self.dt)):
-
-            # # 计算当前的IC值
-            # basis_list = []
-            # rtn_list = []
-            # for k in basis_spread_ratio:
-            #     if i >= rtn_period:
-            #         basis_list.append(basis_spread_ratio[k][i-rtn_period])
-            #         rtn_list.append(rtn_dict[k][i])
-            # basis_list = np.array(basis_list)
-            # rtn_list = np.array(rtn_list)
-            # ic = np.corr
-
-
 
             # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
             bsr_daily = []
