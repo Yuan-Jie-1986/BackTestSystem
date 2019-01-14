@@ -328,6 +328,11 @@ class BacktestSys(object):
                     self.data[k][sub_k] = np.ones(self.dt.shape) * np.nan
                     self.data[k][sub_k][con_1] = np.array(sub_v)[con_2]
 
+        # 对当天没有交易的品种的OPEN进行修正处理
+        for k in self.data:
+            self.data[k]['OPEN'][np.isnan(self.data[k]['OPEN'])] = self.data[k]['CLOSE'][np.isnan(self.data[k]['OPEN'])]
+
+
         # 对某些数据进行修正
         # 沥青数据
         dt_error = [datetime(2014, 12, 2), datetime(2014, 12, 15), datetime(2014, 12, 19), datetime(2014, 12, 22),
