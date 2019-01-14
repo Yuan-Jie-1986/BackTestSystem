@@ -60,6 +60,9 @@ class BasisSpreadAnalysis(BacktestSys):
 
         basis_rtn = rtn_high_avg - rtn_low_avg
 
+        print 'IC_MEAN:', np.mean(ic)
+        print 'FAC_RTN:', np.mean(basis_rtn)
+
         plt.figure()
         plt.plot_date(self.dt, basis_rtn.values.flatten(), fmt='-r', label='BasisRtn')
         plt.grid()
