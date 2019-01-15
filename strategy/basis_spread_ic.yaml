@@ -6,7 +6,7 @@ user: yuanjie
 pwd: yuanjie
 
 start_date: '20130101'
-end_date: '20181201'
+end_date: '20190114'
 capital: 1e8
 backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
@@ -63,12 +63,12 @@ data:
     commodity: HC
     fields: [OPEN, CLOSE, remain_days]
 
-#  -
-#    collection: DerivDB
-#    obj_field: name
-#    obj_content: BU.SHF_MC_LastMonthEnd
-#    commodity: BU
-#    fields: [OPEN, CLOSE, remain_days]
+  -
+    collection: DerivDB
+    obj_field: name
+    obj_content: BU.SHF_MC_LastMonthEnd
+    commodity: BU
+    fields: [OPEN, CLOSE, remain_days]
 
 #  -
 #    collection: DerivDB
@@ -175,12 +175,12 @@ data:
     commodity: V
     fields: [price]
 
-#  -
-#    collection: SpotMD
-#    obj_field: commodity
-#    obj_content: "国产重交-长三角"
-#    commodity: BU
-#    fields: [price]
+  -
+    collection: SpotMD
+    obj_field: commodity
+    obj_content: "国产重交-长三角"
+    commodity: BU
+    fields: [price]
 
 trade_unit:
   TA: 5

@@ -95,9 +95,9 @@ class BasisSpread(BacktestSys):
 
             for k in basis_spread_ratio:
                 if basis_spread_ratio[k][i] <= low_point:
-                    wgtsDict[k][i] = - 5.
+                    wgtsDict[k][i] = - 1.
                 elif basis_spread_ratio[k][i] >= high_point:
-                    wgtsDict[k][i] = 5.
+                    wgtsDict[k][i] = 1.
 
         return wgtsDict
 
