@@ -330,7 +330,10 @@ class BacktestSys(object):
 
         # 对当天没有交易的品种的OPEN进行修正处理
         for k in self.data:
-            self.data[k]['OPEN'][np.isnan(self.data[k]['OPEN'])] = self.data[k]['CLOSE'][np.isnan(self.data[k]['OPEN'])]
+            try:
+                self.data[k]['OPEN'][np.isnan(self.data[k]['OPEN'])] = self.data[k]['CLOSE'][np.isnan(self.data[k]['OPEN'])]
+            except KeyError:
+                continue
 
 
         # 对某些数据进行修正
