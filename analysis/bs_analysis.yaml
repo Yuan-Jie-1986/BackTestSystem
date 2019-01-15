@@ -6,7 +6,7 @@ user: yuanjie
 pwd: yuanjie
 
 start_date: '20130101'
-end_date: '20190114'
+end_date: '20181201'
 capital: 1e8
 backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
@@ -70,12 +70,12 @@ data:
     commodity: BU
     fields: [OPEN, CLOSE, remain_days]
 
-#  -
-#    collection: DerivDB
-#    obj_field: name
-#    obj_content: ZC.CZC_MC_LastMonthEnd
-#    commodity: ZC
-#    fields: [OPEN, CLOSE, remain_days]
+  -
+    collection: DerivDB
+    obj_field: name
+    obj_content: ZC.CZC_MC_LastMonthEnd
+    commodity: ZC
+    fields: [OPEN, CLOSE, remain_days]
 
   -
     collection: DerivDB
@@ -132,12 +132,12 @@ data:
     commodity: JM
     fields: [CLOSE]
 
-#  -
-#    collection: SpotMD
-#    obj_field: edb_name
-#    obj_content: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
-#    commodity: ZC
-#    fields: [CLOSE]
+  -
+    collection: SpotMD
+    obj_field: edb_name
+    obj_content: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
+    commodity: ZC
+    fields: [CLOSE]
 
 
   -
@@ -197,55 +197,55 @@ trade_unit:
   V: 5
 
 margin_ratio:
-  TA.CZC_MC_LastMonthEnd: 0.07
-  PP.DCE_MC_LastMonthEnd: 0.07
-  L.DCE_MC_LastMonthEnd: 0.07
-  RB.SHF_MC_LastMonthEnd: 0.07
-  HC.SHF_MC_LastMonthEnd: 0.07
-  J.DCE_MC_LastMonthEnd: 0.07
-  JM.DCE_MC_LastMonthEnd: 0.07
-  I.DCE_MC_LastMonthEnd: 0.07
-  MA.CZC_MC_LastMonthEnd: 0.07
-  ZC.CZC_MC_LastMonthEnd: 0.07
-  BU.SHF_MC_LastMonthEnd: 0.07
-  V.DCE_MC_LastMonthEnd: 0.07
+  TA.CZC: 0.07
+  PP.DCE: 0.07
+  L.DCE: 0.07
+  RB.SHF: 0.07
+  HC.SHF: 0.07
+  J.DCE: 0.07
+  JM.DCE: 0.07
+  I.DCE: 0.07
+  MA.CZC: 0.07
+  ZC.CZC: 0.07
+  BU.SHF: 0.07
+  V.DCE: 0.07
 
 tcost: 0
 
 tcost_list:
-  TA.CZC_MC_LastMonthEnd:
+  TA.CZC:
     mode: fixed
     value: 24
-  PP.DCE_MC_LastMonthEnd:
+  PP.DCE:
     mode: percentage
     value: 0.00024
-  L.DCE_MC_LastMonthEnd:
+  L.DCE:
     mode: fixed
     value: 8
-  RB.SHF_MC_LastMonthEnd:
+  RB.SHF:
     mode: percentage
     value: 0.0004
-  HC.SHF_MC_LastMonthEnd:
+  HC.SHF:
     mode: percentage
     value: 0.0004
-  J.DCE_MC_LastMonthEnd:
+  J.DCE:
     mode: percentage
     value: 0.00024
-  JM.DCE_MC_LastMonthEnd:
+  JM.DCE:
     mode: percentage
     value: 0.00024
-  I.DCE_MC_LastMonthEnd:
+  I.DCE:
     mode: percentage
     value: 0.00048
-  MA.CZC_MC_LastMonthEnd:
+  MA.CZC:
     mode: fixed
     value: 16
-  ZC.CZC_MC_LastMonthEnd:
+  ZC.CZC:
     mode: fixed
     value: 16
-  BU.SHF_MC_LastMonthEnd:
+  BU.SHF:
     mode: percentage
     value: 0.0004
-  V.DCE_MC_LastMonthEnd:
+  V.DCE:
     mode: fixed
     value: 8
