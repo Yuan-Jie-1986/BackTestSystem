@@ -437,6 +437,36 @@ class DataSaving(object):
                 res_copy.append(r)
             df_res = pd.DataFrame.from_records(res_copy)
             df_res.drop(columns=['_id'], inplace=True)
+        elif method == 'OI':
+            queryArgs = {'wind_code': {'$regex': '\A%s(?=\d+).+(?<=[\d+\.])%s\Z' % (cmd1, cmd2)}}
+            projectionFields = ['wind_code', 'date', 'OI']
+            res = source.find(queryArgs, projectionFields).sort('date', pymongo.ASCENDING)
+            df_res = pd.DataFrame.from_records(res)
+            df_res.drop(columns=['_id'], inplace=True)
+            df_rolling_oi = pd.DataFrame()
+            for v in df_res['wind_code'].unique():
+                df_v = df_res[df_res['wind_code'] == v]
+                temp = df_v['OI'].rolling(window=10).mean()
+                df_v['OI_10_mean'] = temp
+                df_rolling_oi = pd.concat([df_rolling_oi, df_v], ignore_index=True)
+
+
+            # df_group1 = df_res.groupby('wind_code')
+            # df_res1 = df_group1.apply(lambda x: x['OI'].rolling(window=10).mean())
+            # df_res1.reset_index(inplace=True)
+            # print df_res1
+
+            df_group = df_rolling_oi.groupby('date')
+            df_res = df_group.apply(lambda x: x[x['OI_10_mean'] == x['OI_10_mean'].max()])
+            df_res.reset_index(drop=True, inplace=True)
+
+
+            print df_res
+            # for index, data in df_group:
+            #     print index
+            #     print data
+
+
 
         queryArgs = {'name': '%s_MC_%s' % (cmd, method)}
         projectionFields = ['date', 'name']
@@ -487,7 +517,7 @@ class DataSaving(object):
             r['name'] = '%s_MC_%s' % (cmd, method)
             r['remain_days'] = float((r['last_trade_date'] - r['date']).days)
             r['update_time'] = datetime.now()
-            target.insert_one(r)
+            # target.insert_one(r)
             count += 1
 
         sys.stdout.write('\n')
@@ -506,16 +536,15 @@ if __name__ == '__main__':
     # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
     # DataSaving().getFuturePriceFromRT('LCO')
     a = DataSaving(host='localhost', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
-                   log_path="E:\\CBNB\\BackTestSystem\\data_saving.log")
+                   log_path="F:\\CBNB\\CBNB\\BackTestSystem\\data_saving.log")
     # a.getFuturesInfoFromWind(collection='Information', cmd='BU.SHF')
     # a.getFuturePriceFromWind('FuturesMD', 'TA.CZC', alldaytrade=0)
     # a.getPriceFromRT('FuturesMD', cmd='LCOc1', type='futures')
-    # a.getDataFromCSV(collection='SpotMD', cmd='PX', path='E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PX.csv')
+    # a.getDataFromCSV(collection='SpotMD', cmd='PX', path='F:\\CBNB\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PX.csv')
     # res = w.wset(tablename='futurecc', startdate='2018-01-01', enddate='2018-10-19', wind_code='TA.CZC')
     # print res
 
     # a.getDateSeries(collection='DateDB', cmd='SHSE', frequecy='Daily')
-    a.combineMainContract(collection='DerivDB', cmd='TA.CZC', method='LastMonthEnd',
-                          month_list=[1, 5, 9])
+    a.combineMainContract(collection='DerivDB', cmd='TA.CZC', method='OI')
 
 

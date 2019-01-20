@@ -12,7 +12,7 @@ log_path: "F:\\CBNB\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
 #  - Information
-#  - FuturesMD
+  - FuturesMD
   - SpotMD
   - EDB
   - ICEPrice
@@ -76,61 +76,61 @@ FuturesMD:
 
 SpotMD:
 
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S0033227
-#    edb_name: "价格:螺纹钢:HRB400 20mm:上海"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S5704863
-#    edb_name: "价格:热轧板卷:Q235B:4.75mm:杭州"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S5118197
-#    edb_name: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/湿吨
-#    cmd: S0174655
-#    edb_name: "车板价:青岛港:澳大利亚:PB粉矿:61.5%"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S5112223
-#    edb_name: "天津港:库提价(含税):主焦煤(A<8%,V28%,0.8%S,G95,Y20mm):澳大利亚产"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S5101377
-#    edb_name: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
-#
-#  -
-#    source: ThomsonReuters
-#    func: getPriceFromRT
-#    frequency: daily
-#    unit: 美元/桶
-#    type: spot
-#    cmd: [WTM-, WTC-]
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S0033227
+    edb_name: "价格:螺纹钢:HRB400 20mm:上海"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5704863
+    edb_name: "价格:热轧板卷:Q235B:4.75mm:杭州"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5118197
+    edb_name: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/湿吨
+    cmd: S0174655
+    edb_name: "车板价:青岛港:澳大利亚:PB粉矿:61.5%"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5112223
+    edb_name: "天津港:库提价(含税):主焦煤(A<8%,V28%,0.8%S,G95,Y20mm):澳大利亚产"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5101377
+    edb_name: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
+
+  -
+    source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    unit: 美元/桶
+    type: spot
+    cmd: [WTM-, WTC-]
 
   -
     source: ManualInput
