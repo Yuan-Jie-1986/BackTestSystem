@@ -96,26 +96,26 @@ class BasisSpread(BacktestSys):
 
 
             for k in basis_spread_ratio:
-                if self.dt[i] == datetime(2013, 10, 8):
-                    print basis_spread_ratio[k][i]
-                    print k, basis_spread_ratio[k][i]
+                # if self.dt[i] == datetime(2013, 10, 8):
+                #     print basis_spread_ratio[k][i]
+                #     print k, basis_spread_ratio[k][i]
 
                 if basis_spread_ratio[k][i] <= low_point:
                     wgtsDict[k][i] = - 1.
                 elif basis_spread_ratio[k][i] >= high_point:
                     wgtsDict[k][i] = 1.
 
-            wgts_i = {}
-            for k in basis_spread_ratio:
-                if wgtsDict[k][i] != 0:
-                    wgts_i[k] = wgtsDict[k][i]
-            if self.dt[i] == datetime(2013, 10, 8):
-                print '================='
-                print self.dt[i]
-                print low_point
-                print high_point
-                print bsr_daily
-                pprint.pprint(wgts_i)
+            # wgts_i = {}
+            # for k in basis_spread_ratio:
+            #     if wgtsDict[k][i] != 0:
+            #         wgts_i[k] = wgtsDict[k][i]
+            # if self.dt[i] == datetime(2013, 10, 8):
+            #     print '================='
+            #     print self.dt[i]
+            #     print low_point
+            #     print high_point
+            #     print bsr_daily
+            #     pprint.pprint(wgts_i)
             # pass
 
         return wgtsDict

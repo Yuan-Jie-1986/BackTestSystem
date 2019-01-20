@@ -24,7 +24,9 @@ class BasisSpread(BacktestSys):
         # basis_spread = {}
         # basis_spread_ratio = {}
         rtn_period = 20
-        rtn_dict = {}
+        rtn5_dict = {}
+        rtn20_dict = {}
+        rtn30_dict = {}
         vol_chg = {}
         oi_chg = {}
 
@@ -54,8 +56,12 @@ class BasisSpread(BacktestSys):
             # del futures_contract
         for nm in self.data:
             wgtsDict[nm] = np.zeros_like(self.dt)
-            rtn_dict[nm] = np.ones_like(self.data[nm]['CLOSE']) * np.nan
-            rtn_dict[nm][rtn_period:] = self.data[nm]['CLOSE'][rtn_period:] / self.data[nm]['CLOSE'][:-rtn_period] - 1.
+            rtn5_dict[nm] = np.ones_like(self.data[nm]['CLOSE']) * np.nan
+            rtn5_dict[nm][5:] = self.data[nm]['CLOSE'][5:] / self.data[nm]['CLOSE'][:-5] - 1.
+            rtn20_dict[nm] = np.ones_like(self.data[nm]['CLOSE']) * np.nan
+            rtn20_dict[nm][24:] = self.data[nm]['CLOSE'][24:] / self.data[nm]['CLOSE'][:-24] - 1.
+            rtn30_dict[nm] = np.ones_like(self.data[nm]['CLOSE']) * np.nan
+            rtn30_dict[nm][30:] = self.data[nm]['CLOSE'][30:] / self.data[nm]['CLOSE'][:-30] - 1.
             vol_chg[nm] = np.ones_like(self.data[nm]['VOLUME']) * np.nan
             vol_chg[nm][rtn_period:] = self.data[nm]['VOLUME'][rtn_period:] / self.data[nm]['VOLUME'][:-rtn_period] - 1.
             oi_chg[nm] = np.ones_like(self.data[nm]['OI']) * np.nan
@@ -68,7 +74,7 @@ class BasisSpread(BacktestSys):
         # ic = ic_df.values.flatten()
         # ic[np.isnan(ic)] = 1.
 
-        fac_dict = oi_chg
+        fac_dict = rtn20_dict
         for i in np.arange(len(self.dt)):
 
             # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
@@ -107,9 +113,34 @@ class BasisSpread(BacktestSys):
 
             for k in fac_dict:
                 if fac_dict[k][i] <= low_point:
-                    wgtsDict[k][i] = -1.
+                    wgtsDict[k][i] += -1.
                 elif fac_dict[k][i] >= high_point:
-                    wgtsDict[k][i] = 1.
+                    wgtsDict[k][i] += 1.
+
+        fac_dict = rtn5_dict
+        for i in np.arange(len(self.dt)):
+
+            # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
+            fac_daily = []
+            for k in fac_dict:
+                fac_daily.append(fac_dict[k][i])
+            fac_daily = np.array(fac_daily)
+            count = len(fac_daily[~np.isnan(fac_daily)])
+            if count <= 1:
+                continue
+            fac_series = fac_daily[~np.isnan(fac_daily)]
+            fac_series.sort()
+            num_selection = min(4, count / 2)
+            low_point = fac_series[num_selection - 1]
+            high_point = fac_series[-num_selection]
+
+
+            for k in fac_dict:
+                if fac_dict[k][i] <= low_point:
+                    wgtsDict[k][i] += 1.
+                elif fac_dict[k][i] >= high_point:
+                    wgtsDict[k][i] += -1.
+
 
         return wgtsDict
 
