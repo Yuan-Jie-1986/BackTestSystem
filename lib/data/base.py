@@ -517,7 +517,7 @@ class DataSaving(object):
             r['name'] = '%s_MC_%s' % (cmd, method)
             r['remain_days'] = float((r['last_trade_date'] - r['date']).days)
             r['update_time'] = datetime.now()
-            # target.insert_one(r)
+            target.insert_one(r)
             count += 1
 
         sys.stdout.write('\n')
