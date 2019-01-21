@@ -30,7 +30,6 @@ class StrategyRTN(BacktestSys):
         rtn30_dict = {}
         vol_chg = {}
         oi_chg = {}
-        vol_ratio = {}
 
         # bs_rtn_dict = {}
         wgtsDict = {}
@@ -64,17 +63,10 @@ class StrategyRTN(BacktestSys):
             rtn20_dict[nm][20:] = self.data[nm]['CLOSE'][20:] / self.data[nm]['CLOSE'][:-20] - 1.
             rtn30_dict[nm] = np.ones_like(self.data[nm]['CLOSE']) * np.nan
             rtn30_dict[nm][30:] = self.data[nm]['CLOSE'][30:] / self.data[nm]['CLOSE'][:-30] - 1.
-
-            vol_chg[nm] = np.ones_like(self.data[nm]['VOLUME']) * np.nan
-            vol_chg[nm][rtn_period:] = self.data[nm]['VOLUME'][rtn_period:] / self.data[nm]['VOLUME'][:-rtn_period] - 1.
-            oi_chg[nm] = np.ones_like(self.data[nm]['OI']) * np.nan
-            oi_chg[nm][rtn_period:] = self.data[nm]['OI'][rtn_period:] / self.data[nm]['OI'][:-rtn_period] - 1.
-
-            vol_ratio[nm] = np.ones_like(self.data[nm]['VOLUME']) * np.nan
-            temp = pd.DataFrame(self.data[nm]['VOLUME']).rolling(window=5).mean().values.flatten()
-            vol_ratio[nm] = self.data[nm]['VOLUME'] / temp
-
-            rtn20_dict[nm] = rtn20_dict[nm] * vol_ratio[nm]
+            # vol_chg[nm] = np.ones_like(self.data[nm]['VOLUME']) * np.nan
+            # vol_chg[nm][rtn_period:] = self.data[nm]['VOLUME'][rtn_period:] / self.data[nm]['VOLUME'][:-rtn_period] - 1.
+            # oi_chg[nm] = np.ones_like(self.data[nm]['OI']) * np.nan
+            # oi_chg[nm][rtn_period:] = self.data[nm]['OI'][rtn_period:] / self.data[nm]['OI'][:-rtn_period] - 1.
 
         # rtn_df = pd.DataFrame.from_dict(rtn_dict, orient='columns')
         # basis_df = pd.DataFrame.from_dict(basis_spread_ratio, orient='columns')
@@ -126,29 +118,29 @@ class StrategyRTN(BacktestSys):
                 elif fac_dict[k][i] >= high_point:
                     wgtsDict[k][i] += 1.
 
-        # fac_dict = rtn5_dict
-        # for i in np.arange(len(self.dt)):
-        #
-        #     # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
-        #     fac_daily = []
-        #     for k in fac_dict:
-        #         fac_daily.append(fac_dict[k][i])
-        #     fac_daily = np.array(fac_daily)
-        #     count = len(fac_daily[~np.isnan(fac_daily)])
-        #     if count <= 1:
-        #         continue
-        #     fac_series = fac_daily[~np.isnan(fac_daily)]
-        #     fac_series.sort()
-        #     num_selection = min(4, count / 2)
-        #     low_point = fac_series[num_selection - 1]
-        #     high_point = fac_series[-num_selection]
-        #
-        #
-        #     for k in fac_dict:
-        #         if fac_dict[k][i] <= low_point:
-        #             wgtsDict[k][i] += 1.
-        #         elif fac_dict[k][i] >= high_point:
-        #             wgtsDict[k][i] += -1.
+        fac_dict = rtn5_dict
+        for i in np.arange(len(self.dt)):
+
+            # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
+            fac_daily = []
+            for k in fac_dict:
+                fac_daily.append(fac_dict[k][i])
+            fac_daily = np.array(fac_daily)
+            count = len(fac_daily[~np.isnan(fac_daily)])
+            if count <= 1:
+                continue
+            fac_series = fac_daily[~np.isnan(fac_daily)]
+            fac_series.sort()
+            num_selection = min(4, count / 2)
+            low_point = fac_series[num_selection - 1]
+            high_point = fac_series[-num_selection]
+
+
+            for k in fac_dict:
+                if fac_dict[k][i] <= low_point:
+                    wgtsDict[k][i] += 1.
+                elif fac_dict[k][i] >= high_point:
+                    wgtsDict[k][i] += -1.
 
 
         return wgtsDict
@@ -157,23 +149,6 @@ class StrategyRTN(BacktestSys):
 if __name__ == '__main__':
     a = StrategyRTN()
     wgtsDict = a.strategy()
-    # b = BasisSpread()
-    # wgts_b = b.strategy()
-    #
-    # con1 = np.in1d(a.dt, b.dt)
-    # con2 = np.in1d(b.dt, a.dt)
-    # if len(a.dt) == len(b.dt) and con1.all() and con2.all():
-    #     final_wgt = {}
-    #     for k in wgtsDict:
-    #         if k not in final_wgt:
-    #             final_wgt[k] = wgtsDict[k]
-    #         else:
-    #             final_wgt[k] = final_wgt[k] + wgtsDict[k]
-    #     for k in wgts_b:
-    #         if k not in final_wgt:
-    #             final_wgt[k] = wgts_b[k]
-    #         else:
-    #             final_wgt[k] = final_wgt[k] + wgts_b[k]
 
     wgtsDict = a.wgtsStandardization(wgtsDict)
     wgtsDict = a.wgtsProcess(wgtsDict)

@@ -29,7 +29,7 @@ class BasisSpread(BacktestSys):
         rtn_dict = {}
         bs_rtn_dict = {}
         wgtsDict = {}
-        patten = re.compile('_MC_LastMonthEnd')  # 用来判断是否为期货
+        patten = re.compile('(?<=\w)\.(?=[A-Z]+)') #re.compile('_MC_LastMonthEnd')  # 用来判断是否为期货
         for k, v in pairs_dict.items():
             for sub_v in v:
                 if patten.search(sub_v):
@@ -124,9 +124,8 @@ class BasisSpread(BacktestSys):
 if __name__ == '__main__':
     a = BasisSpread()
     wgtsDict = a.strategy()
-    wgtsDict = a.wgtsProcess(wgtsDict)
     wgtsDict = a.wgtsStandardization(wgtsDict)
-
+    wgtsDict = a.wgtsProcess(wgtsDict)
     a.displayResult(wgtsDict, saveLocal=True)
 
 
