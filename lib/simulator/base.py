@@ -351,12 +351,12 @@ class BacktestSys(object):
         raise NotImplementedError
 
     def wgtsProcess(self, wgtsDict):
-        """对生成的权重进行处理"""
+        """对生成的权重进行处理，需要注意的是这个函数要最后再用"""
         if self.bt_mode == 'OPEN':
             # 如果是开盘价进行交易，则将初始权重向后平移一位
             for k in wgtsDict:
-                res = np.zeros_like(wgtsDict[k])
-                res[1:] = wgtsDict[k][:-1]
+                res = np.zeros(len(wgtsDict[k]) + 1)
+                res[1:] = wgtsDict[k]
                 wgtsDict[k] = res
         return wgtsDict
 
@@ -398,11 +398,6 @@ class BacktestSys(object):
         ratio_df = ratio_df.round(decimals=0)
         wgtsDict = ratio_df.to_dict(orient='list')
         return wgtsDict
-
-
-
-
-
 
     def getPnlDaily(self, wgtsDict):
         # 根据权重计算每日的pnl，每日的保证金占用，每日的合约价值
@@ -748,6 +743,11 @@ class BacktestSys(object):
     def displayResult(self, wgtsDict, saveLocal=True):
         # 需要注意的一个问题是，如果在getPnlDaily函数中改变了wgtsDict，那么之后所用的wgtsDict就都改变了
         # saveLocal是逻辑变量，是否将结果存在本地
+        if self.bt_mode == 'OPEN':
+            new_WgtsDict = {}
+            for k in wgtsDict:
+                new_WgtsDict[k] = wgtsDict[k][-1]
+                wgtsDict[k] = wgtsDict[k][:-1]
         pnl, margin_occ, value = self.getPnlDaily(wgtsDict)
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
         margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
@@ -783,6 +783,11 @@ class BacktestSys(object):
                                       ignore_index=True)
             detail_df.to_csv(os.path.join(save_path, 'details.csv'))
 
+            # 保存最新的权重
+            if self.bt_mode == 'OPEN':
+                new_wgt = pd.DataFrame.from_dict(new_WgtsDict, orient='index', columns=['WGTS'])
+                new_wgt.sort_values(by='WGTS', ascending=False, inplace=True)
+                new_wgt.to_csv(os.path.join(save_path, 'new_wgts.csv'))
 
 
         trade_pnl = np.array(trade_pnl)
