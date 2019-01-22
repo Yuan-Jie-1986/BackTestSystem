@@ -31,6 +31,7 @@ class StrategyRTN(BacktestSys):
         vol_chg = {}
         oi_chg = {}
         vol_ratio = {}
+        oi_ratio = {}
 
         # bs_rtn_dict = {}
         wgtsDict = {}
@@ -74,7 +75,11 @@ class StrategyRTN(BacktestSys):
             temp = pd.DataFrame(self.data[nm]['VOLUME']).rolling(window=5).mean().values.flatten()
             vol_ratio[nm] = self.data[nm]['VOLUME'] / temp
 
-            rtn20_dict[nm] = rtn20_dict[nm] * vol_ratio[nm]
+            oi_ratio[nm] = np.ones_like(self.data[nm]['OI']) * np.nan
+            temp = pd.DataFrame(self.data[nm]['OI']).rolling(window=5).mean().values.flatten()
+            oi_ratio[nm] = self.data[nm]['OI'] / temp
+
+            # rtn20_dict[nm] = rtn20_dict[nm] *  vol_ratio[nm]
 
         # rtn_df = pd.DataFrame.from_dict(rtn_dict, orient='columns')
         # basis_df = pd.DataFrame.from_dict(basis_spread_ratio, orient='columns')
