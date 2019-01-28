@@ -11,7 +11,7 @@ class Deviation(BacktestSys):
 
     def strategy(self):
 
-        formulas = [('VAR1 - VAR2', ('L.DCE', 'PP.DCE'))]
+        formulas = [('VAR1 - VAR2 - VAR3', ('L.DCE', 'PP.DCE', 'TA.CZC'))]
 
         wgtsDict = {}
 
@@ -60,16 +60,17 @@ class Deviation(BacktestSys):
 
             for i in np.arange(1, len(self.dt)):
                 for j in np.arange(len(v)):
-                    ptn_sub = '(\+|-)(?=.*?cls_df\["%s"\])' % v[j]
-                    # ptn_add = '+(?=.*?cls_df\["%s"\])' % v[j]
-                    print f
-                    res = re.compile(ptn_sub)
-                    print res.search(f)
-                    if res.search(f):
-                        sign_v = res.search(f).group()
-                    else:
-                        sign_v = '+'
-                    print sign_v, v[j]
+                    ptn_sub = '-.*?(?=cls_df\["%s"\])' % v[j]
+                    ptn_add = '\+.*?(?=cls_df\["%s"\])' % v[j]
+                    print f, v[j]
+                    res_sub = re.compile(ptn_sub)
+                    res_add = re.compile(ptn_add)
+
+                    if res_add.search(f):
+                        sign_v = res_add.search(f).group()
+                        print sign_v
+                    if res_sub.search(f):
+                        print res_sub.search(f).group()
 
                 if rtn_standard[i] >= 3 and wgtsDict[k][i-1] == 0:
                     wgtsDict[k][i] = 1
