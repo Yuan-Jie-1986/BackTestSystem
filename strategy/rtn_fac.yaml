@@ -6,8 +6,8 @@ user: yuanjie
 pwd: yuanjie
 
 start_date: '20130101'
-end_date: '20190120'
-capital: 1e8
+end_date: '20190127'
+capital: 1e6
 backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
 date_type: SHSE

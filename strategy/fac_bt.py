@@ -79,7 +79,7 @@ class StrategyRTN(BacktestSys):
             temp = pd.DataFrame(self.data[nm]['OI']).rolling(window=5).mean().values.flatten()
             oi_ratio[nm] = self.data[nm]['OI'] / temp
 
-            # rtn20_dict[nm] = rtn20_dict[nm] *  vol_ratio[nm]
+            rtn20_dict[nm] = rtn20_dict[nm] * vol_ratio[nm]
 
         # rtn_df = pd.DataFrame.from_dict(rtn_dict, orient='columns')
         # basis_df = pd.DataFrame.from_dict(basis_spread_ratio, orient='columns')
@@ -162,27 +162,27 @@ class StrategyRTN(BacktestSys):
 if __name__ == '__main__':
     a = StrategyRTN()
     wgtsDict = a.strategy()
-    # b = BasisSpread()
-    # wgts_b = b.strategy()
-    #
-    # con1 = np.in1d(a.dt, b.dt)
-    # con2 = np.in1d(b.dt, a.dt)
-    # if len(a.dt) == len(b.dt) and con1.all() and con2.all():
-    #     final_wgt = {}
-    #     for k in wgtsDict:
-    #         if k not in final_wgt:
-    #             final_wgt[k] = wgtsDict[k]
-    #         else:
-    #             final_wgt[k] = final_wgt[k] + wgtsDict[k]
-    #     for k in wgts_b:
-    #         if k not in final_wgt:
-    #             final_wgt[k] = wgts_b[k]
-    #         else:
-    #             final_wgt[k] = final_wgt[k] + wgts_b[k]
-
     wgtsDict = a.wgtsStandardization(wgtsDict)
     wgtsDict = a.wgtsProcess(wgtsDict)
 
-    a.displayResult(wgtsDict, saveLocal=True)
+    b = BasisSpread()
+    wgts_b = b.strategy()
+    wgts_b = a.wgtsStandardization(wgts_b)
+    wgts_b = a.wgtsProcess(wgts_b)
+
+    con1 = np.in1d(a.dt, b.dt)
+    con2 = np.in1d(b.dt, a.dt)
+    if len(a.dt) == len(b.dt) and con1.all() and con2.all():
+        final_wgt = {}
+        for k in wgtsDict:
+            if k in wgts_b:
+                final_wgt[k] = 0.5 * wgtsDict[k] + 0.5 * wgts_b[k]
+            else:
+                final_wgt[k] = wgtsDict[k]
+        for k in wgts_b:
+            if k not in final_wgt:
+                final_wgt[k] = final_wgt[k]
+
+    a.displayResult(final_wgt, saveLocal=True)
 
 
