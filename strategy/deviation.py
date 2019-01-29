@@ -11,7 +11,7 @@ class Deviation(BacktestSys):
 
     def strategy(self):
 
-        formulas = [('VAR1 - VAR2 - VAR3', ('L.DCE', 'PP.DCE', 'TA.CZC'))]
+        formulas = [('VAR1 + 6.5 / VAR2 - 3 * VAR3 + 3.7 * VAR4', ('L.DCE', 'PP.DCE', 'TA.CZC', 'J.DCE'))]
 
         wgtsDict = {}
 
@@ -26,7 +26,6 @@ class Deviation(BacktestSys):
                     wgtsDict[v[i]] = np.zeros_like(self.dt)
                 cls_df[v[i]] = self.data[v[i]]['CLOSE']
                 f = f.replace(res[i], 'cls_df["%s"]' % v[i])
-            print f
             cls_df['price_diff'] = eval(f)
             cls_df['mon_day'] = [d.strftime('%m-%d') for d in self.dt]
             cls_df['year'] = [d.strftime('%Y') for d in self.dt]
@@ -60,17 +59,15 @@ class Deviation(BacktestSys):
 
             for i in np.arange(1, len(self.dt)):
                 for j in np.arange(len(v)):
-                    ptn_sub = '-.*?(?=cls_df\["%s"\])' % v[j]
-                    ptn_add = '\+.*?(?=cls_df\["%s"\])' % v[j]
-                    print f, v[j]
-                    res_sub = re.compile(ptn_sub)
-                    res_add = re.compile(ptn_add)
+                    ptn_str = '[+-](?=[0-9\. */]*?cls_df\["%s"\])' % v[j]
 
-                    if res_add.search(f):
-                        sign_v = res_add.search(f).group()
-                        print sign_v
-                    if res_sub.search(f):
-                        print res_sub.search(f).group()
+                    print f, v[j]
+                    ptn = re.compile(ptn_str)
+
+                    if ptn.search(f):
+                        sign_v = ptn.search(f).group()
+                    else:
+                        sign_v = '+'
 
                 if rtn_standard[i] >= 3 and wgtsDict[k][i-1] == 0:
                     wgtsDict[k][i] = 1
