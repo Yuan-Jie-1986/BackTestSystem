@@ -11,11 +11,13 @@ class Deviation(BacktestSys):
 
     def strategy(self):
 
-        formulas = [('VAR1 + 6.5 / VAR2 - 3 * VAR3 + 3.7 * VAR4', ('L.DCE', 'PP.DCE', 'TA.CZC', 'J.DCE'))]
+        formulas = [('VAR1 - VAR2', ('L.DCE', 'PP.DCE')),
+                    ('VAR1 - VAR2', ('L.DCE', 'TA.CZC'))]
 
         wgtsDict = {}
 
         for f, v in formulas:
+            wgts_formulas = {}
             ptn = re.compile('VAR\d+')
             res = ptn.findall(f)
             if len(res) != len(v):
@@ -24,6 +26,8 @@ class Deviation(BacktestSys):
             for i in np.arange(len(v)):
                 if v[i] not in wgtsDict:
                     wgtsDict[v[i]] = np.zeros_like(self.dt)
+                if v[i] not in wgts_formulas:
+                    wgts_formulas[v[i]] = np.zeros_like(self.dt)
                 cls_df[v[i]] = self.data[v[i]]['CLOSE']
                 f = f.replace(res[i], 'cls_df["%s"]' % v[i])
             cls_df['price_diff'] = eval(f)
@@ -57,29 +61,37 @@ class Deviation(BacktestSys):
             cls_df['rtn_standard'] = (cls_df['rtn'] - cls_df['rtn_mean']) / cls_df['rtn_std']
             rtn_standard = cls_df['rtn_standard'].values.flatten()
 
-            for i in np.arange(1, len(self.dt)):
-                for j in np.arange(len(v)):
-                    ptn_str = '[+-](?=[0-9\. */]*?cls_df\["%s"\])' % v[j]
-
-                    print f, v[j]
-                    ptn = re.compile(ptn_str)
-
-                    if ptn.search(f):
-                        sign_v = ptn.search(f).group()
-                    else:
-                        sign_v = '+'
-
-                if rtn_standard[i] >= 3 and wgtsDict[k][i-1] == 0:
-                    wgtsDict[k][i] = 1
-                elif rtn_standard[i] <= -2.5 and wgtsDict[k][i-1] == 0:
-                    wgtsDict[k][i] = -1
-                elif rtn_standard[i] < 0 and wgtsDict[k][i-1] == -1:
-                    wgtsDict[k][i] = 0
-                elif rtn_standard[i] > 0 and wgtsDict[k][i-1] == 1:
-                    wgtsDict[k][i] = 0
+            for j in np.arange(len(v)):
+                ptn_str = '[+-](?=[0-9\. */]*?cls_df\["%s"\])' % v[j]
+                ptn = re.compile(ptn_str)
+                if ptn.search(f):
+                    sign_v = ptn.search(f).group()
                 else:
-                    wgtsDict[k][i] = wgtsDict[k][i-1]
+                    sign_v = '+'
+                print v[j], sign_v
 
+                for i in np.arange(1, len(self.dt)):
+                    if rtn_standard[i] >= 3 and wgts_formulas[v[j]][i-1] == 0:
+                        wgtsDict[v[j]][i] += -1 * int(sign_v + '1')
+                        wgts_formulas[v[j]][i] = -1 * int(sign_v + '1')
+                    elif rtn_standard[i] <= -3 and wgts_formulas[v[j]][i-1] == 0:
+                        wgtsDict[v[j]][i] += 1 * int(sign_v + '1')
+                        wgts_formulas[v[j]][i] = 1 * int(sign_v + '1')
+                    elif rtn_standard[i] < 0 and wgts_formulas[v[j]][i-1] == -1 * int(sign_v + '1'):
+                        wgtsDict[v[j]][i] -= -1 * int(sign_v + '1')
+                        wgts_formulas[v[j]][i] = 0.
+                    elif rtn_standard[i] > 0 and wgts_formulas[v[j]][i-1] == 1 * int(sign_v + '1'):
+                        print wgtsDict[v[j]][i]
+                        wgtsDict[v[j]][i] -= 1 * int(sign_v + '1')
+                        wgts_formulas[v[j]][i] = 0.
+                        print wgtsDict[v[j]][i]
+                    else:
+                        wgtsDict[v[j]][i] = wgtsDict[v[j]][i - 1]
+                        wgts_formulas[v[j]][i] = wgts_formulas[v[j]][i-1]
+
+            x1 = pd.DataFrame.from_dict(wgtsDict, orient='columns')
+            x1.to_clipboard()
+            pass
 
         # for k in self.data:
         #     wgtsDict[k] = np.zeros_like(self.dt)
@@ -137,7 +149,7 @@ class Deviation(BacktestSys):
 if __name__ == '__main__':
     a = Deviation()
     wgt = a.strategy()
-    wgt = a.wgtsStandardization(wgt)
+    # wgt = a.wgtsStandardization(wgt)
     wgt = a.wgtsProcess(wgt)
 
     a.displayResult(wgt)
