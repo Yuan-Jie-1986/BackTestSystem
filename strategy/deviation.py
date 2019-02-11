@@ -12,7 +12,14 @@ class Deviation(BacktestSys):
     def strategy(self):
 
         formulas = [('VAR1 - VAR2', ('L.DCE', 'PP.DCE')),
-                    ('VAR1 - VAR2', ('L.DCE', 'TA.CZC'))]
+                    ('VAR1 - VAR2', ('L.DCE', 'TA.CZC')),
+                    ('VAR1 - 1.2 * VAR2 - 50', ('J.DCE', 'JM.DCE')),
+                    ('VAR1 - VAR2', ('L.DCE', 'V.DCE')),
+                    ('1./3. * VAR3 - 2 * VAR2 + 1.85 * VAR1 + 637', ('ZC.CZC', 'MA.CZC', 'PP.DCE')),
+                    ('VAR1 - 3 * VAR2', ('PP.DCE', 'MA.CZC')),
+                    ('VAR1 - 1.85 * VAR2 - 637', ('MA.CZC', 'ZC.CZC')),
+                    ('VAR1 - VAR2', ('PP.DCE', 'V.DCE')),
+                    ('VAR1 - VAR2', ('TA.CZC', 'RU.SHF'))]
 
         wgtsDict = {}
 
@@ -35,7 +42,7 @@ class Deviation(BacktestSys):
             cls_df['year'] = [d.strftime('%Y') for d in self.dt]
             season_df = cls_df.pivot(index='mon_day', columns='year', values='price_diff')
             season_df.fillna(method='ffill', inplace=True)
-            season_df = season_df.rolling(window=5, min_periods=3, axis=1).mean()
+            season_df = season_df.rolling(window=3, min_periods=3, axis=1).mean()
             yr = max(int(y) for y in season_df.columns) + 1
             season_df[str(yr)] = np.nan
             season_df = season_df.shift(axis=1)
@@ -71,26 +78,23 @@ class Deviation(BacktestSys):
                 print v[j], sign_v
 
                 for i in np.arange(1, len(self.dt)):
-                    if rtn_standard[i] >= 3 and wgts_formulas[v[j]][i-1] == 0:
-                        wgtsDict[v[j]][i] += -1 * int(sign_v + '1')
+                    if rtn_standard[i] >= 3. and wgts_formulas[v[j]][i-1] == 0:
                         wgts_formulas[v[j]][i] = -1 * int(sign_v + '1')
-                    elif rtn_standard[i] <= -3 and wgts_formulas[v[j]][i-1] == 0:
-                        wgtsDict[v[j]][i] += 1 * int(sign_v + '1')
+                    elif rtn_standard[i] <= -3. and wgts_formulas[v[j]][i-1] == 0:
                         wgts_formulas[v[j]][i] = 1 * int(sign_v + '1')
                     elif rtn_standard[i] < 0 and wgts_formulas[v[j]][i-1] == -1 * int(sign_v + '1'):
-                        wgtsDict[v[j]][i] -= -1 * int(sign_v + '1')
                         wgts_formulas[v[j]][i] = 0.
                     elif rtn_standard[i] > 0 and wgts_formulas[v[j]][i-1] == 1 * int(sign_v + '1'):
-                        print wgtsDict[v[j]][i]
-                        wgtsDict[v[j]][i] -= 1 * int(sign_v + '1')
                         wgts_formulas[v[j]][i] = 0.
-                        print wgtsDict[v[j]][i]
                     else:
-                        wgtsDict[v[j]][i] = wgtsDict[v[j]][i - 1]
                         wgts_formulas[v[j]][i] = wgts_formulas[v[j]][i-1]
 
+                wgtsDict[v[j]] = wgtsDict[v[j]] + wgts_formulas[v[j]]
+
             x1 = pd.DataFrame.from_dict(wgtsDict, orient='columns')
+            x1.index = self.dt
             x1.to_clipboard()
+
             pass
 
         # for k in self.data:
