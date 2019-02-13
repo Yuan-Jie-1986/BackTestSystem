@@ -19,7 +19,15 @@ class Deviation(BacktestSys):
                     ('VAR1 - 3 * VAR2', ('PP.DCE', 'MA.CZC')),
                     ('VAR1 - 1.85 * VAR2 - 637', ('MA.CZC', 'ZC.CZC')),
                     ('VAR1 - VAR2', ('PP.DCE', 'V.DCE')),
-                    ('VAR1 - VAR2', ('TA.CZC', 'RU.SHF'))]
+                    ('VAR1 - VAR2', ('TA.CZC', 'RU.SHF')),
+                    ('VAR1 - VAR2', ('TA.CZC', 'BU.SHF')),
+                    ('VAR1 - 2 * VAR2', ('V.DCE', 'J.DCE')),
+                    ('VAR1 - 1.7 * VAR3 - 0.5 * VAR2 - 800', ('RB.SHF', 'J.DCE', 'I.DCE')),
+                    ('VAR1 - VAR2', ('HC.SHF', 'RB.SHF')),
+                    ('VAR1 - 0.95 * VAR2 - 1000', ('HC.SHF', 'J.DCE')),
+                    ('VAR1 - 3.5 * VAR2 - 800', ('RB.SHF', 'I.DCE')),
+                    ('VAR1 - VAR2', ('J.DCE', 'ZC.CZC')),
+                    ('VAR1 - VAR2', ('BU.SHF', 'FU.SHF'))]
 
         wgtsDict = {}
 
@@ -91,11 +99,11 @@ class Deviation(BacktestSys):
 
                 wgtsDict[v[j]] = wgtsDict[v[j]] + wgts_formulas[v[j]]
 
-            x1 = pd.DataFrame.from_dict(wgtsDict, orient='columns')
-            x1.index = self.dt
-            x1.to_clipboard()
-
-            pass
+            # x1 = pd.DataFrame.from_dict(wgtsDict, orient='columns')
+            # x1.index = self.dt
+            # x1.to_clipboard()
+            #
+            # pass
 
         # for k in self.data:
         #     wgtsDict[k] = np.zeros_like(self.dt)
@@ -153,7 +161,7 @@ class Deviation(BacktestSys):
 if __name__ == '__main__':
     a = Deviation()
     wgt = a.strategy()
-    # wgt = a.wgtsStandardization(wgt)
+    wgt = a.wgtsStandardization(wgt)
     wgt = a.wgtsProcess(wgt)
 
     a.displayResult(wgt)
