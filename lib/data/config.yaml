@@ -18,6 +18,7 @@ collection:
   - ICEPrice
   - DateDB
   - DerivDB
+  - FuturesOIR
 
 FuturesMD:
   -
@@ -303,3 +304,10 @@ DerivDB:
     cmd: [BU.SHF]
     method: LastMonthEnd
     month_list: [6, 12]
+
+FuturesOIR:
+  -
+    func: getFuturesOIRFromWind
+    source: WIND
+    cmd:
+      - L.DCE

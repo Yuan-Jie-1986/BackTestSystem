@@ -43,6 +43,16 @@ class DataSaving(object):
             w.start()
         return None
 
+    def getFuturesOIRFromWind(self, collection, cmd, **kwargs):
+        self.windConn()
+        coll = self.db[collection]
+        coll_info = self.db['Information']
+        ptn1 = re.compile('[A-Z]')
+        coll_info.find()
+
+        res = w.wset(tablename='futureoir', startdate='2017-02-14', enddate='2019-02-15', varity='L.DCE',
+                     wind_code='L1804.DCE', order_by='long', ranks='all', field='date,ranks,member_name,long_position,long_position_increase,long_potion_rate')
+        print res.Data
     def getFuturesInfoFromWind(self, collection, cmd, **kwargs):
         self.windConn()
         coll = self.db[collection]
@@ -360,7 +370,6 @@ class DataSaving(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
-
     def getDateSeries(self, collection, cmd, **kwargs):
         """从WIND导入交易日期时间序列"""
         self.windConn()
@@ -536,7 +545,7 @@ if __name__ == '__main__':
     # DataSaving().getFXFromWind('即期汇率:美元兑人民币')
     # DataSaving().getFuturePriceFromRT('LCO')
     a = DataSaving(host='localhost', port=27017, usr='yuanjie', pwd='yuanjie', db='CBNB',
-                   log_path="F:\\CBNB\\CBNB\\BackTestSystem\\data_saving.log")
+                   log_path="E:\\CBNB\\BackTestSystem\\data_saving.log")
     # a.getFuturesInfoFromWind(collection='Information', cmd='BU.SHF')
     # a.getFuturePriceFromWind('FuturesMD', 'TA.CZC', alldaytrade=0)
     # a.getPriceFromRT('FuturesMD', cmd='LCOc1', type='futures')
@@ -545,6 +554,6 @@ if __name__ == '__main__':
     # print res
 
     # a.getDateSeries(collection='DateDB', cmd='SHSE', frequecy='Daily')
-    a.combineMainContract(collection='DerivDB', cmd='TA.CZC', method='OI')
+    a.getFuturesOIRFromWind(collection='FuturesOIR', cmd='L.DCE')
 
 
