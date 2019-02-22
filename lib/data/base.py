@@ -47,12 +47,167 @@ class DataSaving(object):
         self.windConn()
         coll = self.db[collection]
         coll_info = self.db['Information']
-        ptn1 = re.compile('[A-Z]')
-        coll_info.find()
+        ptn1 = re.compile('[A-Z]+(?=\.)')
+        ptn2 = re.compile('(?<=\.)[A-Z]+')
+        cmd1 = ptn1.search(cmd).group()
+        cmd2 = ptn2.search(cmd).group()
 
-        res = w.wset(tablename='futureoir', startdate='2017-02-14', enddate='2019-02-15', varity='L.DCE',
-                     wind_code='L1804.DCE', order_by='long', ranks='all', field='date,ranks,member_name,long_position,long_position_increase,long_potion_rate')
-        print res.Data
+        queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
+        projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
+        res = coll_info.find(queryArgs, projectionField).sort([('contract_issue_date', pymongo.ASCENDING),
+                                                               ('last_trade_date', pymongo.ASCENDING)])
+        res = list(res)
+        total = len(res)
+        count = 1
+
+        for r in res:
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+            wind_code = r['wind_code']
+            issue_date = r['contract_issue_date']
+            last_trade_date = r['last_trade_date']
+
+            queryArgs = {'wind_code': wind_code}
+            projectionField = ['wind_code', 'date']
+            dt_end_res = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+            dt_start_res = coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING).limit(1)
+            dt_end_res = list(dt_end_res)
+            dt_start_res = list(dt_start_res)
+            if not dt_end_res and not dt_start_res:
+                res = w.wset(tablename='futureoir', startdate=issue_date.strftime('%Y-%m-%d'),
+                             enddate=last_trade_date.strftime('%Y-%m-%d'), varity=cmd, wind_code=wind_code,
+                             order_by='long', ranks='all',
+                             field='date,ranks,member_name,long_position,long_position_increase,long_potion_rate')
+                if res.ErrorCode == -40522017:
+                    raise Exception(u'数据提取量超限')
+
+                if not res.Data:
+                    count += 1
+                    continue
+                res_dict = dict(zip(res.Fields, res.Data))
+                df = pd.DataFrame.from_dict(res_dict)
+                df['wind_code'] = wind_code
+                df['commodity'] = cmd
+                df['long/short'] = 'long'
+                df2dict = df.to_dict(orient='index')
+                for di in df2dict:
+                    dtemp = df2dict[di].copy()
+                    dtemp['update_time'] = datetime.now()
+                    dtemp.update(kwargs)
+                    coll.insert_one(dtemp)
+            elif dt_end_res[0]['date'] < last_trade_date:
+                dt_start = dt_end_res[0]['date'] + timedelta(1)
+                res = w.wset(tablename='futureoir', startdate=dt_start.strftime('%Y-%m-%d'),
+                             enddate=last_trade_date.strftime('%Y-%m-%d'), varity=cmd,
+                             wind_code=wind_code, order_by='long', ranks='all',
+                             field='date,ranks,member_name,long_position,long_position_increase,long_potion_rate')
+
+                if res.ErrorCode == -40522017:
+                    raise Exception(u'数据提取量超限')
+
+                if not res.Data:
+                    count += 1
+                    continue
+                res_dict = dict(zip(res.Fields, res.Data))
+                df = pd.DataFrame.from_dict(res_dict)
+                df['wind_code'] = wind_code
+                df['commodity'] = cmd
+                df['long/short'] = 'long'
+                df2dict = df.to_dict(orient='index')
+                for di in df2dict:
+                    dtemp = df2dict[di].copy()
+                    dtemp['update_time'] = datetime.now()
+                    dtemp.update(kwargs)
+                    coll.insert_one(dtemp)
+            else:
+                count += 1
+                continue
+
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+
+        # cmd_exist = coll.find_one({'commodity': cmd})
+        # if cmd_exist:
+        #     dt_res = coll.find({'commodity': cmd}, ['date']).sort('date', pymongo.DESCENDING).limit(1)
+        #     dt_latest = list(dt_res)[0]['date']
+        #     dt_start = dt_latest + timedelta(1)
+        #     dt_end = datetime.today()
+        #     if dt_start > dt_end:
+        #         return
+        #     queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)},
+        #                  'contract_issue_date': {'$lte': dt_end},
+        #                  'last_trade_date': {'gte': dt_start}}
+        #     projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
+        #     res = coll_info.find(queryArgs, projectionField).sort([('contract_issue_date', pymongo.ASCENDING),
+        #                                                            ('last_trade_date', pymongo.ASCENDING)])
+        #     df_res = pd.DataFrame.from_records(res)
+        #     df_res.drop(columns='_id', inplace=True)
+        #
+        # else:
+        #     queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
+        #     projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
+        #     res = coll_info.find(queryArgs, projectionField).sort([('contract_issue_date', pymongo.ASCENDING),
+        #                                                            ('last_trade_date', pymongo.ASCENDING)])
+        #     df_res = pd.DataFrame.from_records(res)
+        #     df_res.drop(columns='_id', inplace=True)
+        #     dt_start = df_res['contract_issue_date'].iloc[0]
+        #     print dt_start
+        #     dt_end = datetime.today()
+        #     # dt_start = datetime(2009, 10, 1)
+        #     # dt_end = dt_start + timedelta(10)
+        #
+        #
+        #
+        #
+        # total = len(df_res['wind_code'].values)
+        # count = 1
+        # for ct in df_res['wind_code'].values:
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     res = w.wset(tablename='futureoir', startdate=dt_start, enddate=dt_end, varity=cmd, wind_code=ct,
+        #                  order_by='long', ranks='all',
+        #                  field='date,ranks,member_name,long_position,long_position_increase,long_potion_rate')
+        #     if not res.Data:
+        #         continue
+        #     res_dict = dict(zip(res.Fields, res.Data))
+        #     df = pd.DataFrame.from_dict(res_dict)
+        #     df['wind_code'] = ct
+        #     df['commodity'] = cmd
+        #     df['long/short'] = 'long'
+        #     df2dict = df.to_dict(orient='index')
+        #     for di in df2dict:
+        #         dtemp = df2dict[di].copy()
+        #         dtemp['update_time'] = datetime.now()
+        #         dtemp.update(kwargs)
+        #         coll.insert_one(dtemp)
+        #
+        #     count += 1
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
+
+
+
+
+        # res = w.wset(tablename='futureoir', startdate='2010-05-01', enddate='2011-04-05', varity='L.DCE',
+        #              wind_code='L1105.DCE', order_by='long', ranks='all', field='date,ranks,member_name,long_position')#,long_position_increase,long_potion_rate')
+        # res_tuple = dict(zip(res.Fields, res.Data))
+        # print res_tuple
+        # df = pd.DataFrame.from_dict(res_tuple)
+        # df['wind_code'] = 'L1905.DCE'
+        # df['commodity'] = 'L.DCE'
+        # df['long/short'] = 'long'
+        # print df
+        # df2dict = df.to_dict(orient='index')
+        # for d in df2dict:
+        #     print df2dict[d]
+
+
     def getFuturesInfoFromWind(self, collection, cmd, **kwargs):
         self.windConn()
         coll = self.db[collection]

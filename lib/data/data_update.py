@@ -25,6 +25,7 @@ error_list = []
 
 for col in cols:
     col_content = res[col]
+    print col_content
     for cc in col_content:
         try:
             func = cc.pop('func')

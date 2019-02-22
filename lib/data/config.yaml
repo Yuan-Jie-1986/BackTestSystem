@@ -12,12 +12,12 @@ log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
 #  - Information
-  - FuturesMD
-  - SpotMD
-  - EDB
-  - ICEPrice
-  - DateDB
-  - DerivDB
+#  - FuturesMD
+#  - SpotMD
+#  - EDB
+#  - ICEPrice
+#  - DateDB
+#  - DerivDB
   - FuturesOIR
 
 FuturesMD:
