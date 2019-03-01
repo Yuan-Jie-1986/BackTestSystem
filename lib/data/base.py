@@ -480,7 +480,7 @@ class DataSaving(object):
 
         return
 
-    def getDataFromCSV(self, collection, cmd, path, **kwargs):
+    def getDataFromCSV(self, collection, cmd, path, field, **kwargs):
         """
         从csv文件中导入数据到数据库
         """
@@ -502,7 +502,7 @@ class DataSaving(object):
         self.logger.info(u'抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
 
         # 关于编码的问题，如果是中文，需要将unicode转成str
-        df.rename(columns={cmd.encode('utf-8'): 'price'}, inplace=True)
+        df.rename(columns={cmd.encode('utf-8'): field}, inplace=True)
 
         df['commodity'] = cmd
         for k, v in kwargs.items():
