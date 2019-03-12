@@ -108,6 +108,8 @@ if __name__ == '__main__':
     wgt = a.strategy()
     wgt = a.wgtsStandardization(wgt)
     wgt = a.wgtsProcess(wgt)
+    for d in wgt:
+        wgt[d] = 2 * wgt[d]
 
     a.displayResult(wgt)
 

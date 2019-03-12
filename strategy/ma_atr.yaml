@@ -16,8 +16,8 @@ data:
 
   -
     collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
-    obj_field: wind_code
-    obj_content: TA.CZC
+    obj_field: wind_code  # 对应数据表中的字段
+    obj_content: TA.CZC # obj_field的字段对应的值，即wind_code为TA.CZC
     commodity: TA
     fields: [OPEN, CLOSE]
 
