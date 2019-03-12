@@ -335,16 +335,16 @@ class BacktestSys(object):
             except KeyError:
                 continue
 
-
-        # 对某些数据进行修正
-        # 沥青数据
-        dt_error = [datetime(2014, 12, 2), datetime(2014, 12, 15), datetime(2014, 12, 19), datetime(2014, 12, 22),
-                    datetime(2014, 12, 23)]
-        for d in dt_error:
-            try:
-                self.data['BU.SHF']['OPEN'][self.dt == d] = self.data['BU.SHF']['CLOSE'][self.dt == d]
-            except KeyError, e:
-                pass
+        #
+        # # 对某些数据进行修正
+        # # 沥青数据
+        # dt_error = [datetime(2014, 12, 2), datetime(2014, 12, 15), datetime(2014, 12, 19), datetime(2014, 12, 22),
+        #             datetime(2014, 12, 23)]
+        # for d in dt_error:
+        #     try:
+        #         self.data['BU.SHF']['OPEN'][self.dt == d] = self.data['BU.SHF']['CLOSE'][self.dt == d]
+        #     except KeyError, e:
+        #         pass
 
 
     def strategy(self):
