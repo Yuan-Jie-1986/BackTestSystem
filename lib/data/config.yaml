@@ -12,14 +12,25 @@ log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
 #  - Information
-  - FuturesMD
-  - SpotMD
-  - EDB
-  - ICEPrice
-  - DateDB
-  - DerivDB
-  - Inventory
-  - FuturesOIR
+#  - FuturesMD
+#  - SpotMD
+#  - EDB
+#  - ICEPrice
+#  - DateDB
+#  - DerivDB
+#  - Inventory
+#  - FuturesOIR
+  - FuturesMinMD
+
+FuturesMinMD:
+  -
+    source: WIND
+    frequency: 10min
+    func: getFuturesMinPriceFromWind
+    cmd: [RB1905.SHF]
+
+
+
 
 FuturesMD:
   -

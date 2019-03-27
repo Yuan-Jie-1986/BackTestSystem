@@ -43,6 +43,27 @@ class DataSaving(object):
             w.start()
         return None
 
+    def getFuturesMinPriceFromWind(self, collection, ctr, frequency, **kwargs):
+        self.windConn()
+        coll = self.db[collection]
+        coll_info = self.db['Information']
+        ptn = re.compile('\d+(?=min)')
+        freq = ptn.search(frequency).group()
+        queryArgs = {'wind_code': ctr, 'frequency': frequency}
+        projectionField = ['wind_code', 'time']
+        res = coll.find(queryArgs, projectionField).sort('time', pymongo.DESCENDING).limit(1)
+        res = list(res)
+        if not res:
+            queryArgs = {'wind_code': ctr}
+            projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
+            res_info = coll_info.find(queryArgs, projectionField)
+            start_time = list(res_info)[0]['contract_issue_date']
+            start_time = start_time.replace(hour=9)
+            print start_time
+
+
+
+
     def getFuturesOIRFromWind(self, collection, cmd, **kwargs):
         self.windConn()
         coll = self.db[collection]
