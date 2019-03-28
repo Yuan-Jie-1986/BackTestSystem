@@ -27,6 +27,8 @@ FuturesMinMD:
     source: WIND
     frequency: 10min
     func: getFuturesMinPriceFromWind
+    night_trade: 1
+    night_end: "23:00"
     cmd: [RB1905.SHF]
 
 

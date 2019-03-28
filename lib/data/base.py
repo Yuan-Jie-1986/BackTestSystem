@@ -43,7 +43,7 @@ class DataSaving(object):
             w.start()
         return None
 
-    def getFuturesMinPriceFromWind(self, collection, ctr, frequency, **kwargs):
+    def getFuturesMinPriceFromWind(self, collection, ctr, frequency, night_trade, night_end, **kwargs):
         self.windConn()
         coll = self.db[collection]
         coll_info = self.db['Information']
@@ -58,8 +58,17 @@ class DataSaving(object):
             projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
             res_info = coll_info.find(queryArgs, projectionField)
             start_time = list(res_info)[0]['contract_issue_date']
-            start_time = start_time.replace(hour=9)
-            print start_time
+            start_time = start_time.replace(hour=9) - timedelta(seconds=1)
+        else:
+            start_time = res[0]['time']
+
+
+
+        if night_trade:
+            hour, minute = night_end.split(':')
+            end_time = datetime.now().replace(hour=int(hour), minute=int(minute), second=0, microsecond=0)
+        print end_time
+
 
 
 
@@ -730,6 +739,7 @@ if __name__ == '__main__':
     # print res
 
     # a.getDateSeries(collection='DateDB', cmd='SHSE', frequecy='Daily')
-    a.getFuturesOIRFromWind(collection='FuturesOIR', cmd='L.DCE')
+    # a.getFuturesOIRFromWind(collection='FuturesOIR', cmd='L.DCE')
+    a.getFuturesMinPriceFromWind(collection='FuturesMinMD', ctr='RB1905.SHF', frequency='10min')
 
 
