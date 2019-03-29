@@ -50,24 +50,63 @@ class DataSaving(object):
         ptn = re.compile('\d+(?=min)')
         freq = ptn.search(frequency).group()
         queryArgs = {'wind_code': ctr, 'frequency': frequency}
-        projectionField = ['wind_code', 'time']
-        res = coll.find(queryArgs, projectionField).sort('time', pymongo.DESCENDING).limit(1)
+        projectionField = ['wind_code', 'date_time']
+        res = coll.find(queryArgs, projectionField).sort('date_time', pymongo.DESCENDING).limit(1)
         res = list(res)
         if not res:
             queryArgs = {'wind_code': ctr}
             projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
             res_info = coll_info.find(queryArgs, projectionField)
             start_time = list(res_info)[0]['contract_issue_date']
-            start_time = start_time.replace(hour=9) - timedelta(seconds=1)
+            start_time = start_time.replace(hour=9) - timedelta(minutes=1)
+            # start_time = datetime(2019,3,27,0,0,0)
         else:
-            start_time = res[0]['time']
-
-
+            start_time = res[0]['date_time'] + timedelta(minutes=1)
 
         if night_trade:
-            hour, minute = night_end.split(':')
-            end_time = datetime.now().replace(hour=int(hour), minute=int(minute), second=0, microsecond=0)
+            end_hour, end_minute = night_end.split(':')
+            end_minute = str(int(end_minute) + 1)
+        else:
+            end_hour = '15'
+            end_minute = '1'
+
+        now_dttm = datetime.now()
+        if now_dttm.hour < 16:
+            end_time = now_dttm.replace(day=now_dttm.day - 1, hour=16, minute=0, second=0, microsecond=0)
+        else:
+            end_time = now_dttm.replace(hour=16, minute=0, second=0, microsecond=0)
+
+        print start_time
         print end_time
+        if start_time > end_time:
+            return
+        res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time,
+                    periodstart="08:30:00", periodend="%s:%s:00" % (end_hour, end_minute))
+        if res.ErrorCode == -40520007:
+            print ctr, res.Data
+            return
+        res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
+        res_df.index = res.Times
+        res_df['wind_code'] = ctr
+        res_df['frequency'] = frequency
+        res_dict = res_df.to_dict(orient='index')
+        total = len(res_dict)
+        count = 1
+        print u'抓取%s合约的%s分钟数据' % (ctr, freq)
+        for di in res_dict:
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            dtemp = res_dict[di].copy()
+            dtemp['date_time'] = datetime.strptime(str(di), '%Y-%m-%d %H:%M:%S')
+            dtemp['update_time'] = datetime.now()
+            dtemp.update(kwargs)
+            coll.insert_one(dtemp)
+
+            count += 1
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
 
 

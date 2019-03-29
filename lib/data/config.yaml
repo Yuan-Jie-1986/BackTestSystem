@@ -11,7 +11,7 @@ pwd: yuanjie
 log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
-#  - Information
+  - Information
 #  - FuturesMD
 #  - SpotMD
 #  - EDB
@@ -25,12 +25,24 @@ collection:
 FuturesMinMD:
   -
     source: WIND
-    frequency: 10min
+    frequency: 1min
     func: getFuturesMinPriceFromWind
     night_trade: 1
     night_end: "23:00"
-    cmd: [RB1905.SHF]
+    cmd: [RB1905.SHF, RB1910.SHF, RB2001.SHF,
+          I1905.DCE, I1909.DCE, I2001.DCE,
+          J1905.DCE, J1909.DCE, J2001.DCE,
+          JM1905.DCE, JM1909.DCE, JM2001.DCE]
 
+  -
+    source: WIND
+    frequency: 1min
+    func: getFuturesMinPriceFromWind
+    night_trade: 1
+    night_end: "23:30"
+    cmd: [TA905.CZC, TA909.CZC, TA001.CZC,
+          MA905.CZC, MA909.CZC, MA001.CZC,
+          ZC905.CZC, ZC909.CZC, ZC001.CZC]
 
 
 
