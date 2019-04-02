@@ -395,7 +395,7 @@ class BacktestSys(object):
         ratio_df.fillna(0, inplace=True)
         ratio_df = ratio_df * np.sign(wgts_df)
         ratio_df = ratio_df.astype('float')
-        ratio_df = ratio_df.round(decimals=0)
+        # ratio_df = ratio_df.round(decimals=0)
         wgtsDict = ratio_df.to_dict(orient='list')
         return wgtsDict
 
@@ -787,7 +787,7 @@ class BacktestSys(object):
             if self.bt_mode == 'OPEN':
                 new_wgt = pd.DataFrame.from_dict(new_WgtsDict, orient='index', columns=['WGTS'])
                 new_wgt.sort_values(by='WGTS', ascending=False, inplace=True)
-                new_wgt.to_csv(os.path.join(save_path, 'new_wgts.csv'))
+                new_wgt.to_csv(os.path.join(save_path, 'new_wgts_%s.csv' % datetime.now().strftime('%y%m%d')))
 
 
         trade_pnl = np.array(trade_pnl)
