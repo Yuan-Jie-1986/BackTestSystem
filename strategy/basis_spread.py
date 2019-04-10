@@ -32,7 +32,7 @@ class BasisSpread(BacktestSys):
                 else:
                     spot_price = self.data[sub_v].values()[0]
                     spot_price_new = np.ones_like(spot_price) * np.nan
-                    spot_price_new[1:] = spot_price[:-1]
+                    spot_price_new[1:] = spot_price[1:]
 
             if "futures_contract" not in locals():
                 raise Exception(u'没有期货合约')
@@ -91,6 +91,7 @@ class BasisSpread(BacktestSys):
 if __name__ == '__main__':
     a = BasisSpread()
     wgtsDict = a.strategy()
+    wgtsDict = a.wgtsStandardization(wgtsDict)
     wgtsDict = a.wgtsProcess(wgtsDict)
     a.displayResult(wgtsDict, saveLocal=True)
 
