@@ -57,9 +57,13 @@ class DataSaving(object):
             queryArgs = {'wind_code': ctr}
             projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
             res_info = coll_info.find(queryArgs, projectionField)
-            start_time = list(res_info)[0]['contract_issue_date']
+            res_info = list(res_info)
+            if not res_info:
+                start_time = datetime.today() - timedelta(days=1200)
+            else:
+                start_time = res_info[0]['contract_issue_date']
             start_time = start_time.replace(hour=9) - timedelta(minutes=1)
-            # start_time = datetime(2019,3,27,0,0,0)
+
         else:
             start_time = res[0]['date_time'] + timedelta(minutes=1)
 
@@ -557,15 +561,18 @@ class DataSaving(object):
         df = pd.read_csv(path, index_col=0, parse_dates=True)
         df = df.astype('float64')  # 将数据转成浮点型，否则存入数据库中会以NumberLong的数据类型
 
-        if coll.find_one({'commodity': cmd}):
-            searchRes = coll.find({'commodity': cmd}, ['date']).sort('date', pymongo.DESCENDING).limit(1)
-            start_date = list(searchRes)[0]['date']
-            df = df[df.index > start_date]
-        else:
-            start_date = df.index[0]
+        # 可以进行更新
+        # if coll.find_one({'commodity': cmd}):
+        #     searchRes = coll.find({'commodity': cmd}, ['date']).sort('date', pymongo.DESCENDING).limit(1)
+        #     start_date = list(searchRes)[0]['date']
+        #     df = df[df.index > start_date]
+        # else:
+        #     start_date = df.index[0]
+        #
+        # if df.empty:
+        #     return
 
-        if df.empty:
-            return
+        start_date = df.index[0]
 
         unit_total = len(df.values.flatten())
         self.logger.info(u'抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
@@ -576,6 +583,7 @@ class DataSaving(object):
         df['commodity'] = cmd
         for k, v in kwargs.items():
             df[k] = v
+
         res_dict = df.to_dict(orient='index')
         total = len(res_dict)
         count = 1
@@ -584,10 +592,25 @@ class DataSaving(object):
             process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
             sys.stdout.flush()
-            dtemp = res_dict[di].copy()
-            dtemp['date'] = di
-            dtemp['update_time'] = datetime.now()
-            coll.insert_one(dtemp)
+
+            exist_res = coll.find({'commodity': cmd, 'date': di}, ['date', field])
+            exist_res = list(exist_res)
+            if not exist_res:
+                dtemp = res_dict[di].copy()
+                dtemp['date'] = di
+                dtemp['update_time'] = datetime.now()
+                coll.insert_one(dtemp)
+            elif field not in exist_res[0] or exist_res[0][field] != res_dict[di][field]:
+                coll.delete_many({'commodity': cmd, 'date': di})
+                dtemp = res_dict[di].copy()
+                dtemp['date'] = di
+                dtemp['update_time'] = datetime.now()
+                coll.insert_one(dtemp)
+            else:
+                count += 1
+                continue
+
+
 
             count += 1
 
