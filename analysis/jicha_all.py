@@ -4,6 +4,7 @@ import pymongo
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import pyecharts as pec
 
 conn = pymongo.MongoClient(host='192.168.1.172', port=27017)
 db = conn['CBNB']
@@ -39,6 +40,9 @@ ctr_pairs = {'LCOc1': 'LCOc2',
              'GO10SGSWMc1': 'GO10SGSWMc2'}
 
 jicha_total = pd.DataFrame()
+jicha_1 = pd.DataFrame()
+jicha_2 = pd.DataFrame()
+jicha_3 = pd.DataFrame()
 
 for k in fut_spot_1:
     # if k == 'FU.SHF':
@@ -60,7 +64,7 @@ for k in fut_spot_1:
     jicha_df[k] = 1 - jicha_df[k] / jicha_df[fut_spot_1[k]]
     jicha_df.dropna(inplace=True)
 
-    jicha_total = jicha_total.join(jicha_df[k], how='outer')
+    jicha_1 = jicha_1.join(jicha_df[k], how='outer')
 
 for k in fut_spot_2:
     # if k == 'FU.SHF':
@@ -82,10 +86,38 @@ for k in fut_spot_2:
     jicha_df[k] = 1 - jicha_df[k] / jicha_df[fut_spot_2[k]]
     jicha_df.dropna(inplace=True)
 
-    jicha_total = jicha_total.join(jicha_df[k], how='outer')
+    jicha_2 = jicha_2.join(jicha_df[k], how='outer')
+
+for k in ctr_pairs:
+    # if k == 'FU.SHF':
+    queryArgs = {'tr_code': k}
+    projectionField = ['date', 'CLOSE']
+    res = futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+    fut_df = pd.DataFrame.from_records(res, index='date')
+    fut_df.rename(columns={'CLOSE': k}, inplace=True)
+    fut_df.drop(columns=['_id'], inplace=True)
+
+    queryArgs = {'tr_code': ctr_pairs[k]}
+    projectionField = ['date', 'CLOSE']
+    res = futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+    spot_df = pd.DataFrame.from_records(res, index='date')
+    spot_df.rename(columns={'CLOSE': ctr_pairs[k]}, inplace=True)
+    spot_df.drop(columns=['_id'], inplace=True)
+
+    jicha_df = fut_df.join(spot_df, how='outer')
+    jicha_df[k] = 1 - jicha_df[k] / jicha_df[ctr_pairs[k]]
+    jicha_df.dropna(inplace=True)
+
+    jicha_3 = jicha_3.join(jicha_df[k], how='outer')
 
 
-print jicha_total
+jicha_1.plot(grid=True)
+
+jicha_2.plot(grid=True)
+
+jicha_3.plot(grid=True)
+
+plt.show()
 
 # queryArgs = {'wind_code': 'M0067855'}
 # projectionField = ['date', 'CLOSE']
@@ -108,12 +140,12 @@ print jicha_total
 
 
 
-queryArgs = {'tr_code': fut_spot[fut_ctr]}
-projectionField = ['date', 'CLOSE']
-res = spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
-spot_df = pd.DataFrame.from_records(res, index='date')
-spot_df.rename(columns={'CLOSE': fut_spot[fut_ctr]}, inplace=True)
-spot_df.drop(columns=['_id'], inplace=True)
+# queryArgs = {'tr_code': fut_spot[fut_ctr]}
+# projectionField = ['date', 'CLOSE']
+# res = spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+# spot_df = pd.DataFrame.from_records(res, index='date')
+# spot_df.rename(columns={'CLOSE': fut_spot[fut_ctr]}, inplace=True)
+# spot_df.drop(columns=['_id'], inplace=True)
 
 # queryArgs = {'tr_code': ctr_pairs[fut_ctr]}
 # projectionField = ['date', 'CLOSE']
@@ -123,25 +155,25 @@ spot_df.drop(columns=['_id'], inplace=True)
 # spot_df.drop(columns=['_id'], inplace=True)
 #=================================================================================================
 
-spot_df = spot_df.join(exchange_df)
-spot_df[fut_spot[fut_ctr]] = spot_df[fut_spot[fut_ctr]] * spot_df['exchange']
-spot_df.drop(columns=['exchange'], inplace=True)
+# spot_df = spot_df.join(exchange_df)
+# spot_df[fut_spot[fut_ctr]] = spot_df[fut_spot[fut_ctr]] * spot_df['exchange']
+# spot_df.drop(columns=['exchange'], inplace=True)
 
 
 #=================================================================================================
 
-jicha_df = fut_df.join(spot_df, how='outer')
-jicha_df['jicha'] = 1 - jicha_df[fut_ctr] / jicha_df[fut_spot[fut_ctr]]
-jicha_df.dropna(inplace=True)
-jicha_df.plot(secondary_y=['jicha'], grid=True)
-print jicha_df['jicha'].describe()
-
-jicha_df['year'] = [i.year for i in jicha_df.index]
-year_list = sorted(list(set([i.year for i in jicha_df.index])))
-
-for y in year_list:
-    print y
-    print jicha_df[jicha_df['year'] == y]['jicha'].describe()
-
-
-plt.show()
+# jicha_df = fut_df.join(spot_df, how='outer')
+# jicha_df['jicha'] = 1 - jicha_df[fut_ctr] / jicha_df[fut_spot[fut_ctr]]
+# jicha_df.dropna(inplace=True)
+# jicha_df.plot(secondary_y=['jicha'], grid=True)
+# print jicha_df['jicha'].describe()
+#
+# jicha_df['year'] = [i.year for i in jicha_df.index]
+# year_list = sorted(list(set([i.year for i in jicha_df.index])))
+#
+# for y in year_list:
+#     print y
+#     print jicha_df[jicha_df['year'] == y]['jicha'].describe()
+#
+#
+# plt.show()
