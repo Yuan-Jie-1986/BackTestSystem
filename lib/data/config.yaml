@@ -13,8 +13,8 @@ log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 collection:
 #  - Information
 #  - FuturesMinMD
-#  - FuturesMD
-  - SpotMD
+  - FuturesMD
+#  - SpotMD
 #  - EDB
 #  - ICEPrice
 #  - DateDB
@@ -30,16 +30,12 @@ FuturesMinMD:
     func: getFuturesMinPriceFromWind
     night_trade: 1
     night_end: "23:00"
-    cmd: [RB.SHF, I.DCE, J.DCE, JM.DCE, L.DCE, PP.DCE, BU.SHF, V.DCE, HC.SHF]
-#          [RB1905.SHF, RB1910.SHF, RB2001.SHF,
-#          I1905.DCE, I1909.DCE, I2001.DCE,
-#          J1905.DCE, J1909.DCE, J2001.DCE,
-#          JM1905.DCE, JM1909.DCE, JM2001.DCE,
-#          L1905.DCE, L1909.DCE, L2001.DCE,
-#          PP1905.DCE, PP1909.DCE, PP2001.DCE,
-#          BU1906.SHF, BU1912.SHF,
-#          V1905.DCE, V1909.DCE, V2001.DCE,
-#          HC1905.SHF, HC1909.SHF, HC2001.SHF]
+    cmd: [RB.SHF, I.DCE, J.DCE, JM.DCE, L.DCE, PP.DCE, BU.SHF, V.DCE, HC.SHF,
+          RB1905.SHF, RB1910.SHF, RB2001.SHF, I1905.DCE, I1909.DCE, I2001.DCE,
+          J1905.DCE, J1909.DCE, J2001.DCE, JM1905.DCE, JM1909.DCE, JM2001.DCE,
+          L1905.DCE, L1909.DCE, L2001.DCE, PP1905.DCE, PP1909.DCE, PP2001.DCE,
+          BU1906.SHF, BU1912.SHF, V1905.DCE, V1909.DCE, V2001.DCE,
+          HC1905.SHF, HC1909.SHF, HC2001.SHF]
 
   -
     source: WIND
@@ -47,11 +43,11 @@ FuturesMinMD:
     func: getFuturesMinPriceFromWind
     night_trade: 1
     night_end: "23:30"
-    cmd: [TA.CZC, MA.CZC, ZC.CZC, FG.CZC]
-#    [TA905.CZC, TA909.CZC, TA001.CZC,
-#          MA905.CZC, MA909.CZC, MA001.CZC,
-#          ZC905.CZC, ZC909.CZC, ZC001.CZC,
-#          FG905.CZC, FG909.CZC, FG001.CZC,]
+    cmd: [TA.CZC, MA.CZC, ZC.CZC, FG.CZC,
+          TA905.CZC, TA909.CZC, TA001.CZC,
+          MA905.CZC, MA909.CZC, MA001.CZC,
+          ZC905.CZC, ZC909.CZC, ZC001.CZC,
+          FG905.CZC, FG909.CZC, FG001.CZC,]
 
 
 FuturesMD:
@@ -101,13 +97,14 @@ FuturesMD:
     func: getPriceFromRT
     frequency: daily
     type: futures
-    cmd: [LCOc1, RBc1, HOc1]
+    cmd: [LCOc1, LCOc2, CLc1, CLc2, RBc1, RBc2, HOc1, HOc2, LGOc1, LGOc2]
 
   - source: ThomsonReuters
     func: getPriceFromRT
     frequency: daily
     type: swap
-    cmd: [FO380SGSWMc1, FO180SGSWMc1]
+    cmd: [FO380SGSWMc1, FO180SGSWMc1, EBOBNWEMc1, EBOBNWEMc2, NACFRJPSWMc1, NACFRJPSWMc2, GO10SGSWMc1, GO10SGSWMc2,
+    MOG92SGMc1, MOG92SGMc2]
 
 SpotMD:
 
@@ -158,14 +155,14 @@ SpotMD:
 #    unit: 元/吨
 #    cmd: S5101377
 #    edb_name: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
-#
-#  -
-#    source: ThomsonReuters
-#    func: getPriceFromRT
-#    frequency: daily
-#    unit: 美元/桶
-#    type: spot
-#    cmd: [WTM-, WTC-]
+
+  -
+    source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    unit: 美元/桶
+    type: spot
+    cmd: [WTM-, WTC-, FO380-SIN]
 
   -
     source: ManualInput
