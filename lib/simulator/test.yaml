@@ -8,9 +8,12 @@ pwd: yuanjie
 
 start_date: '20130101'
 end_date: '20181231'
-capital: 5e6
+capital: 1e6
 backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易
 
+date_type: SHSE
+
+switch_contract: 1
 
 data:
   -
@@ -19,16 +22,29 @@ data:
     obj_content: TA.CZC
     commodity: TA
     fields: [OPEN, CLOSE]
-  -
-    obj_field: wind_code
-    obj_content: PP.DCE
-    commodity: PP
-    fields: [OPEN, CLOSE]
+#  -
+#    obj_field: wind_code
+#    obj_content: PP.DCE
+#    commodity: PP
+#    fields: [OPEN, CLOSE]
 
 trade_unit:
   TA: 5
   PP: 5
 
+margin_ratio:
+  TA.CZC: 0.07
+  PP.DCE: 0.07
+
+tcost: 1
+
+tcost_list:
+  TA.CZC:
+    mode: fixed
+    value: 24
+  PP.DCE:
+    mode: percentage
+    value: 0.00024
 
 
 

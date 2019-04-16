@@ -284,6 +284,7 @@ class BacktestSys(object):
         self.margin_ratio = conf['margin_ratio']
         self.category = {}
         self.tcost = conf['tcost']
+        self.switch_contract = conf['switch_contract']
 
         if self.tcost:
             self.tcost_list = conf['tcost_list']
@@ -293,6 +294,8 @@ class BacktestSys(object):
             table = self.db[d['collection']] if 'collection' in d else self.db['FuturesMD']
             query_arg = {d['obj_field']: d['obj_content'], 'date': {'$gte': self.start_dt, '$lte': self.end_dt}}
             projection_fields = ['date'] + d['fields']
+            if self.switch_contract:
+                projection_fields = projection_fields + ['switch_contract', 'specific_contract']
             res = table.find(query_arg, projection_fields).sort('date', pymongo.ASCENDING)
             df_res = pd.DataFrame.from_records(res)
             df_res.drop(columns='_id', inplace=True)
@@ -324,9 +327,15 @@ class BacktestSys(object):
             con_2 = np.in1d(v['date'], self.dt)
             self.data[k].pop('date')
             for sub_k, sub_v in v.items():
-                if sub_k != 'date':
+                if sub_k == 'date':
+                    continue
+                if sub_k == 'specific_contract':
+                    self.data[k][sub_k] = np.array(len(self.dt) * [None])
+                    self.data[k][sub_k][con_1] = np.array(sub_v)[con_2]
+                else:
                     self.data[k][sub_k] = np.ones(self.dt.shape) * np.nan
                     self.data[k][sub_k][con_1] = np.array(sub_v)[con_2]
+
 
         # 对当天没有交易的品种的OPEN进行修正处理
         for k in self.data:
@@ -395,7 +404,7 @@ class BacktestSys(object):
         ratio_df.fillna(0, inplace=True)
         ratio_df = ratio_df * np.sign(wgts_df)
         ratio_df = ratio_df.astype('float')
-        # ratio_df = ratio_df.round(decimals=0)
+        ratio_df = ratio_df.round(decimals=0)  # 如果不取整，有可能回测的时候出现极小的数，约等于0，导致回测出现bug
         wgtsDict = ratio_df.to_dict(orient='list')
         return wgtsDict
 
@@ -424,17 +433,14 @@ class BacktestSys(object):
                     continue
 
                 # 需要传入的市场数据
+
                 mkdata[k] = {'CLOSE': self.data[k]['CLOSE'][i],
                              'OPEN': self.data[k]['OPEN'][i],
                              'multiplier': self.unit[self.category[k]],
                              'margin_ratio': self.margin_ratio[k]}
 
-                # 如果不是第一天交易的话，需要前一天的收盘价
-                if i != 0 and ~np.isnan(self.data[k]['CLOSE'][i-1]):
-                    mkdata[k]['PRECLOSE'] = self.data[k]['CLOSE'][i-1]
-
                 # 合约首日交易便有持仓时
-                if i == 0 or np.isnan(self.data[k]['CLOSE'][i-1]):
+                if i == 0 or np.isnan(self.data[k]['CLOSE'][i - 1]):
                     if val[i] != 0:
                         newtrade = TradeRecordByTimes()
                         newtrade.setDT(v)
@@ -449,54 +455,118 @@ class BacktestSys(object):
                             newtrade.setCost(**self.tcost_list[k])
                         newtrade.calCost()
                         newtradedaily.append(newtrade)
+                # 如果不是第一天交易的话，需要前一天的收盘价
+                elif i != 0 and ~np.isnan(self.data[k]['CLOSE'][i - 1]):
+                    mkdata[k]['PRECLOSE'] = self.data[k]['CLOSE'][i - 1]
+                    # 如果切换主力合约
+                    if self.switch_contract:
+                        mkdata[k].update({'switch_contract': self.data[k]['switch_contract'][i],
+                                          'specific_contract': self.data[k]['specific_contract'][i - 1]})
+                        # 如果switch_contract为True，需要前主力合约的OPEN
 
-                else:
-                    if val[i] * val[i-1] < 0:
+                        if mkdata[k]['switch_contract'] and ~np.isnan(mkdata[k]['switch_contract']):
+                            # 这里需要注意的是np.nan也会判断为true，所以需要去掉
+                            # 比如MA.CZC在刚开始的时候是没有specific_contract
+
+                            queryArgs = {'wind_code': mkdata[k]['specific_contract'], 'date': self.dt[i]}
+                            projectionField = ['OPEN']
+                            table = self.db['FuturesMD']
+
+                            if mkdata[k]['specific_contract'] == 'nan':
+                                # 对于MA.CZC, ZC.CZC的品种，之前没有specific_contract字段，使用前一交易日的收盘价
+                                print '%s在%s的前一交易日没有specific_contract字段，使用前一交易日的收盘价换约平仓' % \
+                                      (mkdata[k], self.dt[i].strftime('%Y%m%d'))
+                                old_open = self.data[k]['CLOSE'][i - 1]
+                            elif table.find_one(queryArgs, projectionField):
+                                old_open = table.find_one(queryArgs, projectionField)['OPEN']
+                                if np.isnan(old_open):
+                                    print u'%s因为该合约当天没有交易，在%s使用前一天的收盘价作为换约平仓的价格' % \
+                                          (mkdata[k]['specific_contract'], self.dt[i].strftime('%Y%m%d'))
+                                    old_open = mkdata[k]['PRECLOSE']
+                            else:
+                                print u'%s因为已经到期，在%s使用的是前一天的收盘价作为换约平仓的价格' % \
+                                      (mkdata[k]['specific_contract'], self.dt[i].strftime('%Y%m%d'))
+                                old_open = mkdata[k]['PRECLOSE']
+
+                            mkdata[k]['old_open'] = old_open
+
+                    if self.switch_contract and mkdata[k]['switch_contract'] and ~np.isnan(mkdata[k]['switch_contract'])\
+                            and val[i-1] != 0:
                         newtrade1 = TradeRecordByTimes()
                         newtrade1.setDT(v)
                         newtrade1.setContract(k)
                         newtrade1.setCommodity(self.category[k])
-                        newtrade1.setPrice(self.data[k][self.bt_mode][i])
-                        newtrade1.setType(-1)
+                        newtrade1.setPrice(mkdata[k]['old_open'])
                         newtrade1.setVolume(abs(val[i-1]))
                         newtrade1.setMultiplier(self.unit[self.category[k]])
-                        newtrade1.setDirection(np.sign(val[i]))
+                        newtrade1.setDirection(-np.sign(val[i-1]))
                         if self.tcost:
                             newtrade1.setCost(**self.tcost_list[k])
                         newtrade1.calCost()
                         newtradedaily.append(newtrade1)
 
-                        newtrade2 = TradeRecordByTimes()
-                        newtrade2.setDT(v)
-                        newtrade2.setContract(k)
-                        newtrade2.setCommodity(self.category[k])
-                        newtrade2.setPrice(self.data[k][self.bt_mode][i])
-                        newtrade2.setType(1)
-                        newtrade2.setVolume(abs(val[i]))
-                        newtrade2.setMultiplier(self.unit[self.category[k]])
-                        newtrade2.setDirection(np.sign(val[i]))
-                        if self.tcost:
-                            newtrade2.setCost(**self.tcost_list[k])
-                        newtrade2.calCost()
-                        newtradedaily.append(newtrade2)
-
-                    elif val[i] == val[i-1]:  # 没有交易
-                        continue
+                        if val[i] != 0:
+                            newtrade2 = TradeRecordByTimes()
+                            newtrade2.setDT(v)
+                            newtrade2.setContract(k)
+                            newtrade2.setCommodity(self.category[k])
+                            newtrade2.setPrice(self.data[k][self.bt_mode][i])
+                            newtrade2.setType(1)
+                            newtrade2.setVolume(abs(val[i]))
+                            newtrade2.setMultiplier(self.unit[self.category[k]])
+                            newtrade2.setDirection(np.sign(val[i]))
+                            if self.tcost:
+                                newtrade2.setCost(**self.tcost_list[k])
+                            newtrade2.calCost()
+                            newtradedaily.append(newtrade2)
 
                     else:
-                        newtrade = TradeRecordByTimes()
-                        newtrade.setDT(v)
-                        newtrade.setContract(k)
-                        newtrade.setCommodity(self.category[k])
-                        newtrade.setPrice(self.data[k][self.bt_mode][i])
-                        newtrade.setType(np.sign(abs(val[i]) - abs(val[i-1])))
-                        newtrade.setVolume(abs(val[i] - val[i-1]))
-                        newtrade.setMultiplier(self.unit[self.category[k]])
-                        newtrade.setDirection(np.sign(val[i] - val[i-1]))
-                        if self.tcost:
-                            newtrade.setCost(**self.tcost_list[k])
-                        newtrade.calCost()
-                        newtradedaily.append(newtrade)
+                        if val[i] * val[i-1] < 0:
+                            newtrade1 = TradeRecordByTimes()
+                            newtrade1.setDT(v)
+                            newtrade1.setContract(k)
+                            newtrade1.setCommodity(self.category[k])
+                            newtrade1.setPrice(self.data[k][self.bt_mode][i])
+                            newtrade1.setType(-1)
+                            newtrade1.setVolume(abs(val[i-1]))
+                            newtrade1.setMultiplier(self.unit[self.category[k]])
+                            newtrade1.setDirection(np.sign(val[i]))
+                            if self.tcost:
+                                newtrade1.setCost(**self.tcost_list[k])
+                            newtrade1.calCost()
+                            newtradedaily.append(newtrade1)
+
+                            newtrade2 = TradeRecordByTimes()
+                            newtrade2.setDT(v)
+                            newtrade2.setContract(k)
+                            newtrade2.setCommodity(self.category[k])
+                            newtrade2.setPrice(self.data[k][self.bt_mode][i])
+                            newtrade2.setType(1)
+                            newtrade2.setVolume(abs(val[i]))
+                            newtrade2.setMultiplier(self.unit[self.category[k]])
+                            newtrade2.setDirection(np.sign(val[i]))
+                            if self.tcost:
+                                newtrade2.setCost(**self.tcost_list[k])
+                            newtrade2.calCost()
+                            newtradedaily.append(newtrade2)
+
+                        elif val[i] == val[i-1]:  # 没有交易
+                            continue
+
+                        else:
+                            newtrade = TradeRecordByTimes()
+                            newtrade.setDT(v)
+                            newtrade.setContract(k)
+                            newtrade.setCommodity(self.category[k])
+                            newtrade.setPrice(self.data[k][self.bt_mode][i])
+                            newtrade.setType(np.sign(abs(val[i]) - abs(val[i-1])))
+                            newtrade.setVolume(abs(val[i] - val[i-1]))
+                            newtrade.setMultiplier(self.unit[self.category[k]])
+                            newtrade.setDirection(np.sign(val[i] - val[i-1]))
+                            if self.tcost:
+                                newtrade.setCost(**self.tcost_list[k])
+                            newtrade.calCost()
+                            newtradedaily.append(newtrade)
 
             trd = TradeRecordByDay(dt=v, holdPosDict=holdpos, MkData=mkdata, newTrade=newtradedaily)
             trd.addNewPositon()
@@ -519,7 +589,7 @@ class BacktestSys(object):
             if len(v) != len(self.dt):
                 print u'%s的权重向量与时间向量长度不一致' % k
                 raise Exception(u'权重向量与时间向量长度不一致')
-        # total_pnl = 0.
+        total_pnl = 0.
         trade_record = {}
         uncovered_record = {}
         for k, v in wgtsDict.items():
@@ -535,174 +605,245 @@ class BacktestSys(object):
                     # 需要注意的是如果当天没有成交量，可能一些价格会是nan值，会导致回测计算结果不准确
                     continue
 
-                elif (v[i] != 0 and i == 0) or (v[i] != 0 and np.isnan(trade_price[i-1]) and i != 0 and v[i-1] == 0):
-                    # 第一天交易就开仓
-                    # 第二种情况是为了排除该品种当天没有交易，价格为nan的这种情况，e.g. 20141202 BU.SHF
-                    count += 1
-                    tr_r = TradeRecordByTrade()
-                    tr_r.setCounter(count)
-                    tr_r.setOpen(trade_price[i])
-                    tr_r.setOpenDT(self.dt[i])
-                    tr_r.setCommodity(self.category[k])
-                    tr_r.setVolume(abs(v[i]))
-                    tr_r.setMultiplier(self.unit[self.category[k]])
-                    tr_r.setContract(k)
-                    tr_r.setDirection(np.sign(v[i]))
-                    if self.tcost:
-                        tr_r.setTcost(**self.tcost_list[k])
-                    trade_record[k].append(tr_r)
-                    uncovered_record[k].append(tr_r.count)
+                # 如果当天涉及到移仓，需要将昨天的仓位先平掉，然后在新的主力合约上开仓，统一以开盘价平掉旧的主力合约
+                if self.switch_contract and self.data[k]['switch_contract'][i] \
+                    and ~np.isnan(self.data[k]['switch_contract'][i]) and v[i - 1] != 0:
 
-                elif abs(v[i]) > abs(v[i-1]) and v[i] * v[i-1] >= 0:
-                    # 新开仓或加仓
-                    count += 1
-                    tr_r = TradeRecordByTrade()
-                    tr_r.setCounter(count)
-                    tr_r.setOpen(trade_price[i])
-                    tr_r.setOpenDT(self.dt[i])
-                    tr_r.setCommodity(self.category[k])
-                    tr_r.setVolume(abs(v[i]) - abs(v[i-1]))
-                    tr_r.setMultiplier(self.unit[self.category[k]])
-                    tr_r.setContract(k)
-                    tr_r.setDirection(np.sign(v[i]))
-                    if self.tcost:
-                        tr_r.setTcost(**self.tcost_list[k])
-                    trade_record[k].append(tr_r)
-                    uncovered_record[k].append(tr_r.count)
+                    # 条件中需要加上判断合约是否为nan，否则也会进入到该条件中
 
-                elif abs(v[i]) < abs(v[i-1]) and v[i] * v[i-1] >= 0:
+                    table = self.db['FuturesMD']
+                    res = self.data[k]['specific_contract'][i-1]
+                    # 对于换合约需要平仓的合约均使用开盘价进行平仓
+                    queryArgs = {'wind_code': res, 'date': self.dt[i]}
+                    projectionField = ['OPEN']
 
-                    # 减仓或平仓
-                    needed_covered = abs(v[i - 1]) - abs(v[i])  # 需要减仓的数量
-                    uncovered_record_sub = []
-                    uncovered_record_add = []
-                    for j in np.arange(1, len(uncovered_record[k]) + 1):
-                        for m in np.arange(1, len(trade_record[k]) + 1):
-                            if uncovered_record[k][-j] == trade_record[k][-m].count:
-                                # 如果需要减仓的数量小于最近的开仓的数量
-                                if needed_covered < trade_record[k][-m].volume:
-                                    uncovered_vol = trade_record[k][-m].volume - needed_covered
-                                    trade_record[k][-m].setVolume(needed_covered)
-                                    trade_record[k][-m].setClose(trade_price[i])
-                                    trade_record[k][-m].setCloseDT(self.dt[i])
-                                    trade_record[k][-m].calcHoldingPeriod()
-                                    trade_record[k][-m].calcTcost()
-                                    trade_record[k][-m].calcPnL()
-                                    trade_record[k][-m].calcRtn()
-                                    uncovered_record_sub.append(uncovered_record[k][-j])
+                    if res == 'nan':
+                        # 对于MA.CZC, ZC.CZC的品种，之前没有specific_contract字段，使用前一交易日的收盘价
+                        print '%s在%s的前一交易日没有specific_contract字段，使用前一交易日的收盘价换约平仓' % \
+                              (k, self.dt[i].strftime('%Y%m%d'))
+                        trade_price_switch = self.data[k]['CLOSE'][i-1]
+                    elif table.find_one(queryArgs, projectionField):
+                        trade_price_switch = table.find_one(queryArgs, projectionField)['OPEN']
+                        if np.isnan(trade_price_switch):
+                            print u'%s因为该合约当天没有交易，在%s使用前一天的收盘价作为换约平仓的价格' % \
+                                  (res, self.dt[i].strftime('%Y%m%d'))
+                            trade_price_switch = self.data[k]['CLOSE'][i-1]
+                    else:
+                        print u'%s因为已经到期，在%s使用的是前一天的收盘价作为换约平仓的价格' % \
+                              (res, self.dt[i].strftime('%Y%m%d'))
+                        trade_price_switch = self.data[k]['CLOSE'][i-1]
 
-                                    needed_covered = 0.
-
-                                    # 对于没有平仓的部分新建交易记录
-                                    count += 1
-                                    tr_r = TradeRecordByTrade()
-                                    tr_r.setCounter(count)
-                                    tr_r.setOpen(trade_record[k][-m].open)
-                                    tr_r.setOpenDT(trade_record[k][-m].open_dt)
-                                    tr_r.setCommodity(self.category[k])
-                                    tr_r.setVolume(uncovered_vol)
-                                    tr_r.setMultiplier(self.unit[self.category[k]])
-                                    tr_r.setContract(k)
-                                    tr_r.setDirection(trade_record[k][-m].direction)
-                                    if self.tcost:
-                                        tr_r.setTcost(**self.tcost_list[k])
-                                    trade_record[k].append(tr_r)
-                                    uncovered_record_add.append(tr_r.count)
-
-                                    break
-
-
-                                # 如果需要减仓的数量等于最近的开仓数量
-                                elif needed_covered == trade_record[k][-m].volume:
-                                    trade_record[k][-m].setClose(trade_price[i])
-                                    trade_record[k][-m].setCloseDT(self.dt[i])
-                                    trade_record[k][-m].calcHoldingPeriod()
-                                    trade_record[k][-m].calcTcost()
-                                    trade_record[k][-m].calcPnL()
-                                    trade_record[k][-m].calcRtn()
-                                    uncovered_record_sub.append(uncovered_record[k][-j])
-                                    needed_covered = 0.
-                                    break
-
-                                # 如果需要减仓的数量大于最近的开仓数量
-                                elif needed_covered > trade_record[k][-m].volume:
-                                    trade_record[k][-m].setClose(trade_price[i])
-                                    trade_record[k][-m].setCloseDT(self.dt[i])
-                                    trade_record[k][-m].calcHoldingPeriod()
-                                    trade_record[k][-m].calcTcost()
-                                    trade_record[k][-m].calcPnL()
-                                    trade_record[k][-m].calcRtn()
-                                    uncovered_record_sub.append(uncovered_record[k][-j])
-                                    needed_covered -= trade_record[k][-m].volume
-                                    break
-
-                        if needed_covered == 0.:
-                            for tr in uncovered_record_sub:
-                                uncovered_record[k].remove(tr)
-                            for tr in uncovered_record_add:
-                                uncovered_record[k].append(tr)
-                            break
-
-                elif v[i] * v[i-1] < 0:
-
-                    # 先平仓后开仓
-                    needed_covered = abs(v[i - 1])  # 需要减仓的数量
-                    uncovered_record_sub = []
-                    for j in np.arange(1, len(uncovered_record[k]) + 1):
-                        for m in np.arange(1, len(trade_record[k]) + 1):
-                            if uncovered_record[k][-j] == trade_record[k][-m].count:
-                                # 如果需要减仓的数量小于最近的开仓的数量，会报错
-                                if needed_covered < trade_record[k][-m].volume:
-                                    raise Exception(u'请检查，待减仓的数量为什么会小于已经开仓的数量')
-
-                                # 如果需要减仓的数量等于最近的开仓数量
-                                elif needed_covered == trade_record[k][-m].volume:
-                                    trade_record[k][-m].setClose(trade_price[i])
-                                    trade_record[k][-m].setCloseDT(self.dt[i])
-                                    trade_record[k][-m].calcHoldingPeriod()
-                                    trade_record[k][-m].calcTcost()
-                                    trade_record[k][-m].calcPnL()
-                                    trade_record[k][-m].calcRtn()
-                                    uncovered_record_sub.append(uncovered_record[k][-j])
-                                    needed_covered = 0.
-
-                                    break
-
-                                # 如果需要减仓的数量大于最近的开仓数量
-                                elif needed_covered > trade_record[k][-m].volume:
-                                    trade_record[k][-m].setClose(trade_price[i])
-                                    trade_record[k][-m].setCloseDT(self.dt[i])
-                                    trade_record[k][-m].calcHoldingPeriod()
-                                    trade_record[k][-m].calcTcost()
-                                    trade_record[k][-m].calcPnL()
-                                    trade_record[k][-m].calcRtn()
-                                    uncovered_record_sub.append(uncovered_record[k][-j])
-                                    needed_covered -= trade_record[k][-m].volume
-
-                                    break
-
-                        if needed_covered == 0.:
-                            for tr in uncovered_record_sub:
-                                uncovered_record[k].remove(tr)
-                            break
                     if uncovered_record[k]:
-                        print self.dt[i], k, uncovered_record[k][0]
-                        raise Exception(u'请检查，依然有未平仓的交易，无法新开反向仓')
+                        needed_covered = abs(v[i - 1])
+                        uncovered_record_sub = []
+                        for j in np.arange(1, len(uncovered_record[k]) + 1):
+                            for m in np.arange(1, len(trade_record[k]) + 1):
+                                if uncovered_record[k][-j] == trade_record[k][-m].count:
+                                    trade_record[k][-m].setClose(trade_price_switch)
+                                    trade_record[k][-m].setCloseDT(self.dt[i])
+                                    trade_record[k][-m].calcHoldingPeriod()
+                                    trade_record[k][-m].calcTcost()
+                                    trade_record[k][-m].calcPnL()
+                                    trade_record[k][-m].calcRtn()
+                                    uncovered_record_sub.append(uncovered_record[k][-j])
+                                    needed_covered -= trade_record[k][-m].volume
+                        if needed_covered == 0:
+                            for tr in uncovered_record_sub:
+                                uncovered_record[k].remove(tr)
+                        else:
+                            print self.dt[i], k, uncovered_record[k]
+                            raise Exception(u'仓位没有完全平掉，请检查')
 
-                    count += 1
-                    tr_r = TradeRecordByTrade()
-                    tr_r.setCounter(count)
-                    tr_r.setOpen(trade_price[i])
-                    tr_r.setOpenDT(self.dt[i])
-                    tr_r.setCommodity(self.category[k])
-                    tr_r.setVolume(abs(v[i]))
-                    tr_r.setMultiplier(self.unit[self.category[k]])
-                    tr_r.setContract(k)
-                    tr_r.setDirection(np.sign(v[i]))
-                    if self.tcost:
-                        tr_r.setTcost(**self.tcost_list[k])
-                    trade_record[k].append(tr_r)
-                    uncovered_record[k].append(tr_r.count)
+                        if v[i] != 0:
+                            # 对新的主力合约进行开仓
+                            count += 1
+                            tr_r = TradeRecordByTrade()
+                            tr_r.setCounter(count)
+                            tr_r.setOpen(trade_price[i])
+                            tr_r.setOpenDT(self.dt[i])
+                            tr_r.setCommodity(self.category[k])
+                            tr_r.setVolume(abs(v[i]))
+                            tr_r.setMultiplier(self.unit[self.category[k]])
+                            tr_r.setContract(k)
+                            tr_r.setDirection(np.sign(v[i]))
+                            if self.tcost:
+                                tr_r.setTcost(**self.tcost_list[k])
+                            trade_record[k].append(tr_r)
+                            uncovered_record[k].append(tr_r.count)
+
+                else:
+                    if (v[i] != 0 and i == 0) or (v[i] != 0 and np.isnan(trade_price[i-1]) and i != 0 and v[i-1] == 0):
+                        # 第一天交易就开仓
+                        # 第二种情况是为了排除该品种当天没有交易，价格为nan的这种情况，e.g. 20141202 BU.SHF
+                        count += 1
+                        tr_r = TradeRecordByTrade()
+                        tr_r.setCounter(count)
+                        tr_r.setOpen(trade_price[i])
+                        tr_r.setOpenDT(self.dt[i])
+                        tr_r.setCommodity(self.category[k])
+                        tr_r.setVolume(abs(v[i]))
+                        tr_r.setMultiplier(self.unit[self.category[k]])
+                        tr_r.setContract(k)
+                        tr_r.setDirection(np.sign(v[i]))
+                        if self.tcost:
+                            tr_r.setTcost(**self.tcost_list[k])
+                        trade_record[k].append(tr_r)
+                        uncovered_record[k].append(tr_r.count)
+
+                    elif abs(v[i]) > abs(v[i-1]) and v[i] * v[i-1] >= 0:
+                        # 新开仓或加仓
+
+                        count += 1
+                        tr_r = TradeRecordByTrade()
+                        tr_r.setCounter(count)
+                        tr_r.setOpen(trade_price[i])
+                        tr_r.setOpenDT(self.dt[i])
+                        tr_r.setCommodity(self.category[k])
+                        tr_r.setVolume(abs(v[i]) - abs(v[i-1]))
+                        tr_r.setMultiplier(self.unit[self.category[k]])
+                        tr_r.setContract(k)
+                        tr_r.setDirection(np.sign(v[i]))
+                        if self.tcost:
+                            tr_r.setTcost(**self.tcost_list[k])
+                        trade_record[k].append(tr_r)
+                        uncovered_record[k].append(tr_r.count)
+
+
+                    elif abs(v[i]) < abs(v[i-1]) and v[i] * v[i-1] >= 0:
+
+                        # 减仓或平仓
+                        needed_covered = abs(v[i - 1]) - abs(v[i])  # 需要减仓的数量
+                        uncovered_record_sub = []
+                        uncovered_record_add = []
+                        for j in np.arange(1, len(uncovered_record[k]) + 1):
+                            for m in np.arange(1, len(trade_record[k]) + 1):
+                                if uncovered_record[k][-j] == trade_record[k][-m].count:
+                                    # 如果需要减仓的数量小于最近的开仓的数量
+                                    if needed_covered < trade_record[k][-m].volume:
+                                        uncovered_vol = trade_record[k][-m].volume - needed_covered
+                                        trade_record[k][-m].setVolume(needed_covered)
+                                        trade_record[k][-m].setClose(trade_price[i])
+                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].calcHoldingPeriod()
+                                        trade_record[k][-m].calcTcost()
+                                        trade_record[k][-m].calcPnL()
+                                        trade_record[k][-m].calcRtn()
+                                        uncovered_record_sub.append(uncovered_record[k][-j])
+
+                                        needed_covered = 0.
+
+                                        # 对于没有平仓的部分新建交易记录
+                                        count += 1
+                                        tr_r = TradeRecordByTrade()
+                                        tr_r.setCounter(count)
+                                        tr_r.setOpen(trade_record[k][-m].open)
+                                        tr_r.setOpenDT(trade_record[k][-m].open_dt)
+                                        tr_r.setCommodity(self.category[k])
+                                        tr_r.setVolume(uncovered_vol)
+                                        tr_r.setMultiplier(self.unit[self.category[k]])
+                                        tr_r.setContract(k)
+                                        tr_r.setDirection(trade_record[k][-m].direction)
+                                        if self.tcost:
+                                            tr_r.setTcost(**self.tcost_list[k])
+                                        trade_record[k].append(tr_r)
+                                        uncovered_record_add.append(tr_r.count)
+
+                                        break
+
+
+                                    # 如果需要减仓的数量等于最近的开仓数量
+                                    elif needed_covered == trade_record[k][-m].volume:
+                                        trade_record[k][-m].setClose(trade_price[i])
+                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].calcHoldingPeriod()
+                                        trade_record[k][-m].calcTcost()
+                                        trade_record[k][-m].calcPnL()
+                                        trade_record[k][-m].calcRtn()
+                                        uncovered_record_sub.append(uncovered_record[k][-j])
+                                        needed_covered = 0.
+                                        break
+
+                                    # 如果需要减仓的数量大于最近的开仓数量
+                                    elif needed_covered > trade_record[k][-m].volume:
+                                        trade_record[k][-m].setClose(trade_price[i])
+                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].calcHoldingPeriod()
+                                        trade_record[k][-m].calcTcost()
+                                        trade_record[k][-m].calcPnL()
+                                        trade_record[k][-m].calcRtn()
+                                        uncovered_record_sub.append(uncovered_record[k][-j])
+                                        needed_covered -= trade_record[k][-m].volume
+                                        break
+
+                            if needed_covered == 0.:
+                                for tr in uncovered_record_sub:
+                                    uncovered_record[k].remove(tr)
+                                for tr in uncovered_record_add:
+                                    uncovered_record[k].append(tr)
+                                break
+
+                    elif v[i] * v[i-1] < 0:
+
+                        # 先平仓后开仓
+                        needed_covered = abs(v[i - 1])  # 需要减仓的数量
+                        uncovered_record_sub = []
+                        for j in np.arange(1, len(uncovered_record[k]) + 1):
+                            for m in np.arange(1, len(trade_record[k]) + 1):
+                                if uncovered_record[k][-j] == trade_record[k][-m].count:
+                                    # 如果需要减仓的数量小于最近的开仓的数量，会报错
+                                    if needed_covered < trade_record[k][-m].volume:
+                                        raise Exception(u'请检查，待减仓的数量为什么会小于已经开仓的数量')
+
+                                    # 如果需要减仓的数量等于最近的开仓数量
+                                    elif needed_covered == trade_record[k][-m].volume:
+                                        trade_record[k][-m].setClose(trade_price[i])
+                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].calcHoldingPeriod()
+                                        trade_record[k][-m].calcTcost()
+                                        trade_record[k][-m].calcPnL()
+                                        trade_record[k][-m].calcRtn()
+                                        uncovered_record_sub.append(uncovered_record[k][-j])
+                                        needed_covered = 0.
+
+                                        break
+
+                                    # 如果需要减仓的数量大于最近的开仓数量
+                                    elif needed_covered > trade_record[k][-m].volume:
+                                        trade_record[k][-m].setClose(trade_price[i])
+                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].calcHoldingPeriod()
+                                        trade_record[k][-m].calcTcost()
+                                        trade_record[k][-m].calcPnL()
+                                        trade_record[k][-m].calcRtn()
+                                        uncovered_record_sub.append(uncovered_record[k][-j])
+                                        needed_covered -= trade_record[k][-m].volume
+
+                                        break
+
+                            if needed_covered == 0.:
+                                for tr in uncovered_record_sub:
+                                    uncovered_record[k].remove(tr)
+                                break
+                        if uncovered_record[k]:
+                            for trsd in trade_record[k]:
+                                print trsd.__dict__
+                            print self.dt[i], k, uncovered_record[k]
+                            raise Exception(u'请检查，依然有未平仓的交易，无法新开反向仓')
+
+                        count += 1
+                        tr_r = TradeRecordByTrade()
+                        tr_r.setCounter(count)
+                        tr_r.setOpen(trade_price[i])
+                        tr_r.setOpenDT(self.dt[i])
+                        tr_r.setCommodity(self.category[k])
+                        tr_r.setVolume(abs(v[i]))
+                        tr_r.setMultiplier(self.unit[self.category[k]])
+                        tr_r.setContract(k)
+                        tr_r.setDirection(np.sign(v[i]))
+                        if self.tcost:
+                            tr_r.setTcost(**self.tcost_list[k])
+                        trade_record[k].append(tr_r)
+                        uncovered_record[k].append(tr_r.count)
 
             trade_times = len(trade_record[k])
             buy_times = len([t for t in trade_record[k] if t.direction == 1])
@@ -736,7 +877,7 @@ class BacktestSys(object):
 
             # total_pnl_k = np.nansum([tr.pnl for tr in trade_record[k]])
             # total_pnl += total_pnl_k
-            # print total_pnl
+            # print 'sadfa', total_pnl
 
         return trade_record
 
@@ -749,6 +890,9 @@ class BacktestSys(object):
                 new_WgtsDict[k] = wgtsDict[k][-1]
                 wgtsDict[k] = wgtsDict[k][:-1]
         pnl, margin_occ, value = self.getPnlDaily(wgtsDict)
+        # print 'nv'
+        # df_pnl = pd.DataFrame(np.cumsum(pnl), index=self.dt)
+        # df_pnl.to_clipboard()
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
         margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
         # leverage = value / (self.capital + np.cumsum(pnl))
