@@ -34,29 +34,29 @@ data:
     commodity: MA
     fields: [OPEN, CLOSE]
 
-  -
-    obj_field: wind_code
-    obj_content: RB.SHF
-    commodity: RB
-    fields: [OPEN, CLOSE]
-
-  -
-    obj_field: wind_code
-    obj_content: J.DCE
-    commodity: J
-    fields: [OPEN, CLOSE]
-
-  -
-    obj_field: wind_code
-    obj_content: JM.DCE
-    commodity: JM
-    fields: [OPEN, CLOSE]
-
-  -
-    obj_field: wind_code
-    obj_content: HC.SHF
-    commodity: HC
-    fields: [OPEN, CLOSE]
+#  -
+#    obj_field: wind_code
+#    obj_content: RB.SHF
+#    commodity: RB
+#    fields: [OPEN, CLOSE]
+#
+#  -
+#    obj_field: wind_code
+#    obj_content: J.DCE
+#    commodity: J
+#    fields: [OPEN, CLOSE]
+#
+#  -
+#    obj_field: wind_code
+#    obj_content: JM.DCE
+#    commodity: JM
+#    fields: [OPEN, CLOSE]
+#
+#  -
+#    obj_field: wind_code
+#    obj_content: HC.SHF
+#    commodity: HC
+#    fields: [OPEN, CLOSE]
 
   -
     obj_field: wind_code
@@ -64,17 +64,17 @@ data:
     commodity: BU
     fields: [OPEN, CLOSE]
 
-  -
-    obj_field: wind_code
-    obj_content: ZC.CZC
-    commodity: ZC
-    fields: [OPEN, CLOSE]
-
-  -
-    obj_field: wind_code
-    obj_content: I.DCE
-    commodity: I
-    fields: [OPEN, CLOSE]
+#  -
+#    obj_field: wind_code
+#    obj_content: ZC.CZC
+#    commodity: ZC
+#    fields: [OPEN, CLOSE]
+#
+#  -
+#    obj_field: wind_code
+#    obj_content: I.DCE
+#    commodity: I
+#    fields: [OPEN, CLOSE]
 
   -
     obj_field: wind_code
@@ -95,46 +95,46 @@ data:
     fields: [OPEN, CLOSE]
 
 
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "价格:螺纹钢:HRB400 20mm:上海"
-    commodity: RB
-    fields: [CLOSE]
-
-  - collection: SpotMD
-    obj_field: edb_name
-    obj_content: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
-    commodity: J
-    fields: [CLOSE]
-
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "车板价:青岛港:澳大利亚:PB粉矿:61.5%"
-    commodity: I
-    fields: [CLOSE]
-
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "价格:热轧板卷:Q235B:4.75mm:杭州"
-    commodity: HC
-    fields: [CLOSE]
-
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "天津港:库提价(含税):主焦煤(A<8%,V28%,0.8%S,G95,Y20mm):澳大利亚产"
-    commodity: JM
-    fields: [CLOSE]
-
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
-    commodity: ZC
-    fields: [CLOSE]
+#  -
+#    collection: SpotMD
+#    obj_field: edb_name
+#    obj_content: "价格:螺纹钢:HRB400 20mm:上海"
+#    commodity: RB
+#    fields: [CLOSE]
+#
+#  - collection: SpotMD
+#    obj_field: edb_name
+#    obj_content: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
+#    commodity: J
+#    fields: [CLOSE]
+#
+#  -
+#    collection: SpotMD
+#    obj_field: edb_name
+#    obj_content: "车板价:青岛港:澳大利亚:PB粉矿:61.5%"
+#    commodity: I
+#    fields: [CLOSE]
+#
+#  -
+#    collection: SpotMD
+#    obj_field: edb_name
+#    obj_content: "价格:热轧板卷:Q235B:4.75mm:杭州"
+#    commodity: HC
+#    fields: [CLOSE]
+#
+#  -
+#    collection: SpotMD
+#    obj_field: edb_name
+#    obj_content: "天津港:库提价(含税):主焦煤(A<8%,V28%,0.8%S,G95,Y20mm):澳大利亚产"
+#    commodity: JM
+#    fields: [CLOSE]
+#
+#  -
+#    collection: SpotMD
+#    obj_field: edb_name
+#    obj_content: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
+#    commodity: ZC
+#    fields: [CLOSE]
 
 
   -

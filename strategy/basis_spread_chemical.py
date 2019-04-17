@@ -4,7 +4,7 @@ from lib.simulator.base import BacktestSys
 import numpy as np
 import re
 
-class BasisSpread(BacktestSys):
+class BasisSpreadChemical(BacktestSys):
     def __init__(self):
         # super(BasisSpread, self).__init__()
         self.current_file = __file__
@@ -81,15 +81,15 @@ class BasisSpread(BacktestSys):
 
             for k in basis_spread_ratio:
                 if basis_spread_ratio[k][i] <= low_point:
-                    wgtsDict[k][i] = -1  #- int(5. * wgt_daily[k])
+                    wgtsDict[k][i] = -1 #- int(5. * wgt_daily[k])
                 elif basis_spread_ratio[k][i] >= high_point:
-                    wgtsDict[k][i] = 1  # int(5. * wgt_daily[k])
+                    wgtsDict[k][i] = 1 # int(5. * wgt_daily[k])
 
         return wgtsDict
 
 
 if __name__ == '__main__':
-    a = BasisSpread()
+    a = BasisSpreadChemical()
     wgtsDict = a.strategy()
     wgtsDict = a.wgtsStandardization(wgtsDict)
     wgtsDict = a.wgtsProcess(wgtsDict)
