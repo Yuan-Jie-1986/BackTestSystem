@@ -186,6 +186,9 @@ class TradeRecordByDay(object):
 
         for k, v in self.holdPosition.items():
             if 'volume' in v:
+                if k not in self.mkdata:
+                    print '%s合约%s没有数据' % (k, self.dt.strftime('%Y%m%d'))
+                    continue
                 if 'PRECLOSE' not in self.mkdata[k]:
                     print self.dt, self.mkdata[k]
                     raise Exception(u'请检查传入的市场数据是否正确')
@@ -344,17 +347,6 @@ class BacktestSys(object):
             except KeyError:
                 continue
 
-        #
-        # # 对某些数据进行修正
-        # # 沥青数据
-        # dt_error = [datetime(2014, 12, 2), datetime(2014, 12, 15), datetime(2014, 12, 19), datetime(2014, 12, 22),
-        #             datetime(2014, 12, 23)]
-        # for d in dt_error:
-        #     try:
-        #         self.data['BU.SHF']['OPEN'][self.dt == d] = self.data['BU.SHF']['CLOSE'][self.dt == d]
-        #     except KeyError, e:
-        #         pass
-
 
     def strategy(self):
         raise NotImplementedError
@@ -429,18 +421,21 @@ class BacktestSys(object):
             for k, val in wgtsDict.items():
 
                 # 如果在当前日期该合约没有开始交易，则直接跳出当前循环，进入下一个合约
-                if np.isnan(self.data[k]['CLOSE'][i]):
+                # 如何修改权重
+                if np.isnan(self.data[k]['CLOSE'][:i+1]).all():
                     continue
 
                 # 需要传入的市场数据
 
                 mkdata[k] = {'CLOSE': self.data[k]['CLOSE'][i],
-                             'OPEN': self.data[k]['OPEN'][i],
                              'multiplier': self.unit[self.category[k]],
                              'margin_ratio': self.margin_ratio[k]}
 
+                if 'OPEN' in self.data[k]:
+                    mkdata[k].update({'OPEN': self.data[k]['OPEN'][i]})
+
                 # 合约首日交易便有持仓时
-                if i == 0 or np.isnan(self.data[k]['CLOSE'][i - 1]):
+                if i == 0 or np.isnan(self.data[k]['CLOSE'][:i]).all():
                     if val[i] != 0:
                         newtrade = TradeRecordByTimes()
                         newtrade.setDT(v)
@@ -456,8 +451,15 @@ class BacktestSys(object):
                         newtrade.calCost()
                         newtradedaily.append(newtrade)
                 # 如果不是第一天交易的话，需要前一天的收盘价
-                elif i != 0 and ~np.isnan(self.data[k]['CLOSE'][i - 1]):
+                elif i != 0:
                     mkdata[k]['PRECLOSE'] = self.data[k]['CLOSE'][i - 1]
+                    if np.isnan(mkdata[k]['PRECLOSE']):
+                        for pre_counter in np.arange(2, i + 1):
+                            if ~np.isnan(self.data[k]['CLOSE'][i - pre_counter]):
+                                mkdata[k]['PRECLOSE'] = self.data[k]['CLOSE'][i - pre_counter]
+                                print '%s合约在%s使用的PRECLOSE是%d天前的收盘价' % (k, self.dt[i].strftime('%Y%m%d'), pre_counter)
+                                break
+
                     # 如果切换主力合约
                     if self.switch_contract:
                         mkdata[k].update({'switch_contract': self.data[k]['switch_contract'][i],
@@ -601,8 +603,12 @@ class BacktestSys(object):
 
             for i in range(len(v)):
 
-                if np.isnan(trade_price[i]) or (i == 0 and v[i] == 0):
+                if i == 0 and v[i] == 0:
+                    continue
+                if np.isnan(trade_price[i]):
                     # 需要注意的是如果当天没有成交量，可能一些价格会是nan值，会导致回测计算结果不准确
+                    # 如果当天没有交易量的话，所持有的仓位修改成与单一个交易日相同
+                    v[i] = v[i-1]
                     continue
 
                 # 如果当天涉及到移仓，需要将昨天的仓位先平掉，然后在新的主力合约上开仓，统一以开盘价平掉旧的主力合约
@@ -672,7 +678,7 @@ class BacktestSys(object):
                             uncovered_record[k].append(tr_r.count)
 
                 else:
-                    if (v[i] != 0 and i == 0) or (v[i] != 0 and np.isnan(trade_price[i-1]) and i != 0 and v[i-1] == 0):
+                    if (v[i] != 0 and i == 0) or (v[i] != 0 and np.isnan(trade_price[:i]).all()):
                         # 第一天交易就开仓
                         # 第二种情况是为了排除该品种当天没有交易，价格为nan的这种情况，e.g. 20141202 BU.SHF
                         count += 1
