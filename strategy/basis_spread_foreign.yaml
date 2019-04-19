@@ -7,7 +7,7 @@ pwd: yuanjie
 
 start_date: '20130101'
 end_date: '20190403'
-capital: 1e6
+capital: 1e8
 backtest_mode: CLOSE  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
 switch_contract: 0
@@ -21,78 +21,98 @@ data:
     obj_content: LCOc1
     commodity: LCO
     fields: [OPEN, CLOSE]
+    unit_change: dollar  # 如果回测的品种是以外盘计价的，需要乘以汇率
 
   -
     obj_field: tr_code
     obj_content: LCOc2
     commodity: LCO
     fields: [OPEN, CLOSE]
+    unit_change: dollar
 
   -
     obj_field: tr_code
     obj_content: CLc1
     commodity: CL
     fields: [OPEN, CLOSE]
+    unit_change: dollar
 
   -
     obj_field: tr_code
     obj_content: CLc2
     commodity: CL
     fields: [OPEN, CLOSE]
+    unit_change: dollar
 
   -
     obj_field: tr_code
     obj_content: RBc1
     commodity: RB
     fields: [OPEN, CLOSE]
+    unit_change: dollar
 
   -
     obj_field: tr_code
     obj_content: RBc2
     commodity: RB
     fields: [OPEN, CLOSE]
+    unit_change: dollar
 
   -
     obj_field: tr_code
     obj_content: EBOBNWEMc1
     commodity: EBOB
     fields: [ CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: EBOBNWEMc2
     commodity: EBOB
     fields: [CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: NACFRJPSWMc1
     commodity: NA
     fields: [CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: NACFRJPSWMc2
     commodity: NA
     fields: [CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: MOG92SGMc1
     commodity: MOG
     fields: [CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: MOG92SGMc2
     commodity: MOG
     fields: [CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: HOc1
     commodity: HO
     fields: [OPEN, CLOSE]
+    unit_change: dollar
+
 
 
   -
@@ -100,61 +120,71 @@ data:
     obj_content: HOc2
     commodity: HO
     fields: [CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: LGOc1
     commodity: LGO
     fields: [CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: LGOc2
     commodity: LGO
     fields: [CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: GO10SGSWMc1
     commodity: GO
     fields: [CLOSE]
+    unit_change: dollar
+
 
   -
     obj_field: tr_code
     obj_content: GO10SGSWMc2
     commodity: GO
     fields: [CLOSE]
+    unit_change: dollar
+
 
 trade_unit:
-  LCO: 1
-  CL: 1
-  RB: 1
-  EBOB: 1
-  NA: 1
-  MOG: 1
-  HO: 1
-  LGO: 1
-  GO: 1
+  LCO: 1000
+  CL: 1000
+  RB: 42000
+  EBOB: 1000
+  NA: 1000
+  MOG: 1000
+  HO: 42000
+  LGO: 100
+  GO: 100
 
 margin_ratio:
-  LCOc1: 1
-  LCOc2: 1
-  CLc1: 1
-  CLc2: 1
-  RBc1: 1
-  RBc2: 1
-  EBOBNWEMc1: 1
-  EBOBNWEMc2: 1
-  NACFRJPSWMc1: 1
-  NACFRJPSWMc2: 1
-  MOG92SGMc1: 1
-  MOG92SGMc2: 1
-  HOc1: 1
-  HOc2: 1
-  LGOc1: 1
-  LGOc2: 1
-  GO10SGSWMc1: 1
-  GO10SGSWMc2: 1
+  LCOc1: 0.03
+  LCOc2: 0.03
+  CLc1: 0.03
+  CLc2: 0.03
+  RBc1: 0.03
+  RBc2: 0.03
+  EBOBNWEMc1: 0.03
+  EBOBNWEMc2: 0.03
+  NACFRJPSWMc1: 0.03
+  NACFRJPSWMc2: 0.03
+  MOG92SGMc1: 0.03
+  MOG92SGMc2: 0.03
+  HOc1: 0.03
+  HOc2: 0.03
+  LGOc1: 0.03
+  LGOc2: 0.03
+  GO10SGSWMc1: 0.03
+  GO10SGSWMc2: 0.03
 
 
 tcost: 0

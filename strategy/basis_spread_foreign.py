@@ -20,8 +20,6 @@ class BasisSpread(BacktestSys):
             else:
                 pairs_dict[v].append(k)
 
-
-
         basis_spread = {}
         basis_spread_ratio = {}
         wgtsDict = {}
@@ -78,16 +76,21 @@ class BasisSpread(BacktestSys):
                 if basis_spread_ratio[k][i] <= low_point:
                     for pa in pairs_dict[k]:
                         if patten1.search(pa):
-                            wgtsDict[pa][i] = 1
-                        elif patten2.search(pa):
-                            wgtsDict[pa][i] = -1
+                            wgtsDict[pa][i] = 10
+                        if patten2.search(pa):
+                            wgtsDict[pa][i] = -10
 
                 elif basis_spread_ratio[k][i] >= high_point:
                     for pa in pairs_dict[k]:
                         if patten1.search(pa):
-                            wgtsDict[pa][i] = -1
-                        elif patten2.search(pa):
-                            wgtsDict[pa][i] = 1
+                            wgtsDict[pa][i] = -10
+                        if patten2.search(pa):
+                            wgtsDict[pa][i] = 10
+        # for k in wgtsDict:
+        #     wgt = np.zeros_like(wgtsDict[k])
+        #     wgt[1:] = wgtsDict[k][:-1]
+        #     wgtsDict[k] = wgt
+
         print wgtsDict
         return wgtsDict
 
@@ -95,8 +98,10 @@ class BasisSpread(BacktestSys):
 if __name__ == '__main__':
     a = BasisSpread()
     wgtsDict = a.strategy()
-    # wgtsDict = a.wgtsStandardization(wgtsDict)
+    wgtsDict = a.wgtsStandardization(wgtsDict)
     wgtsDict = a.wgtsProcess(wgtsDict)
+    for k in wgtsDict:
+        wgtsDict[k] = 4 * np.array(wgtsDict[k])
     a.displayResult(wgtsDict, saveLocal=True)
 
 
