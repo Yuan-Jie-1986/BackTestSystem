@@ -65,6 +65,7 @@ for k in fut_spot_1:
     jicha_df.dropna(inplace=True)
 
     jicha_1 = jicha_1.join(jicha_df[k], how='outer')
+    jicha_total = jicha_total.join(jicha_df[k], how='outer')
 
 for k in fut_spot_2:
     # if k == 'FU.SHF':
@@ -87,6 +88,7 @@ for k in fut_spot_2:
     jicha_df.dropna(inplace=True)
 
     jicha_2 = jicha_2.join(jicha_df[k], how='outer')
+    jicha_total = jicha_total.join(jicha_df[k], how='outer')
 
 for k in ctr_pairs:
     # if k == 'FU.SHF':
@@ -109,6 +111,7 @@ for k in ctr_pairs:
     jicha_df.dropna(inplace=True)
 
     jicha_3 = jicha_3.join(jicha_df[k], how='outer')
+    jicha_total = jicha_total.join(jicha_df[k], how='outer')
 
 
 jicha_1.plot(grid=True)
@@ -117,6 +120,7 @@ jicha_2.plot(grid=True)
 
 jicha_3.plot(grid=True)
 
+jicha_total.plot(grid=True)
 plt.show()
 
 # queryArgs = {'wind_code': 'M0067855'}
