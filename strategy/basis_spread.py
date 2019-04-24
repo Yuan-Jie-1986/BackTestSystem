@@ -93,8 +93,8 @@ if __name__ == '__main__':
     wgtsDict = a.strategy()
     wgtsDict = a.wgtsStandardization(wgtsDict)
     wgtsDict = a.wgtsProcess(wgtsDict)
-    # for k in wgtsDict:
-    #     wgtsDict[k] = 2 * np.array(wgtsDict[k])
+    for k in wgtsDict:
+        wgtsDict[k] = 2 * np.array(wgtsDict[k])
 
     a.displayResult(wgtsDict, saveLocal=True)
 

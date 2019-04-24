@@ -7,7 +7,7 @@ pwd: yuanjie
 
 start_date: '20130101'
 end_date: '20190403'
-capital: 1e8
+capital: 5e9
 backtest_mode: CLOSE  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
 switch_contract: 0
@@ -77,7 +77,7 @@ data:
   -
     obj_field: tr_code
     obj_content: NACFRJPSWMc1
-    commodity: NA
+    commodity: MOPJ
     fields: [CLOSE]
     unit_change: dollar
 
@@ -85,7 +85,7 @@ data:
   -
     obj_field: tr_code
     obj_content: NACFRJPSWMc2
-    commodity: NA
+    commodity: MOPJ
     fields: [CLOSE]
     unit_change: dollar
 
@@ -154,17 +154,32 @@ data:
     fields: [CLOSE]
     unit_change: dollar
 
+  -
+    obj_field: tr_code
+    obj_content: NGc1
+    commodity: NG
+    fields: [CLOSE]
+    unit_change: dollar
+
+  - obj_field: tr_code
+    obj_content: NGc2
+    commodity: NG
+    fields: [CLOSE]
+    unit_change: dollar
+
+
 
 trade_unit:
   LCO: 1000
   CL: 1000
   RB: 42000
   EBOB: 1000
-  NA: 1000
+  MOPJ: 1000
   MOG: 1000
   HO: 42000
   LGO: 100
-  GO: 100
+  GO: 1000
+  NG: 10000
 
 margin_ratio:
   LCOc1: 0.03
@@ -185,6 +200,8 @@ margin_ratio:
   LGOc2: 0.03
   GO10SGSWMc1: 0.03
   GO10SGSWMc2: 0.03
+  NGc1: 0.03
+  NGc2: 0.03
 
 
 tcost: 0
