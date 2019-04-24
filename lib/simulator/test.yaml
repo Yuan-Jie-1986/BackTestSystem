@@ -16,24 +16,24 @@ date_type: NYMEX
 switch_contract: 0
 
 data:
-#  -
-#    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
-#    obj_field: wind_code
-#    obj_content: TA.CZC
-#    commodity: TA
-#    fields: [OPEN, CLOSE]
+  -
+    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+    obj_field: wind_code
+    obj_content: TA.CZC
+    commodity: TA
+    fields: [OPEN, CLOSE]
 #  -
 #    obj_field: wind_code
 #    obj_content: PP.DCE
 #    commodity: PP
 #    fields: [OPEN, CLOSE]
-  -
-    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
-    obj_field: tr_code
-    obj_content: LCOc1
-    commodity: LCO
-    fields: [OPEN, CLOSE]
-    unit_change: dollar
+#  -
+#    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+#    obj_field: tr_code
+#    obj_content: LCOc1
+#    commodity: LCO
+#    fields: [OPEN, CLOSE]
+#    unit_change: dollar
 
 trade_unit:
   TA: 5

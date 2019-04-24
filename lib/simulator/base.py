@@ -1017,9 +1017,9 @@ class BacktestSys(object):
             wgts_df.to_csv(os.path.join(save_path, 'wgts.csv'))
 
             # 保存总的回测结果为result.csv
-            total_df = pd.DataFrame({'每日PnL': pnl, '净值': nv, '资金占用比例': margin_occ_ratio, '杠杆倍数': leverage},
+            total_df = pd.DataFrame({u'每日PnL': pnl, u'净值': nv, u'资金占用比例': margin_occ_ratio, u'杠杆倍数': leverage},
                                     index=self.dt)
-            total_df.to_csv(os.path.join(save_path, 'result.csv'))
+            total_df.to_csv(os.path.join(save_path, 'result.csv'), encoding='utf-8')
 
 
             # 保存交易记录为trade_detail.csv
