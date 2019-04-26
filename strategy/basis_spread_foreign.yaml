@@ -7,7 +7,7 @@ pwd: yuanjie
 
 start_date: '20130101'
 end_date: '20190403'
-capital: 5e9
+capital: 5e6
 backtest_mode: CLOSE  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
 switch_contract: 0
@@ -58,20 +58,20 @@ data:
     fields: [OPEN, CLOSE]
     unit_change: dollar
 
-  -
-    obj_field: tr_code
-    obj_content: EBOBNWEMc1
-    commodity: EBOB
-    fields: [ CLOSE]
-    unit_change: dollar
+#  -
+#    obj_field: tr_code
+#    obj_content: EBOBNWEMc1
+#    commodity: EBOB
+#    fields: [ CLOSE]
+#    unit_change: dollar
 
-
-  -
-    obj_field: tr_code
-    obj_content: EBOBNWEMc2
-    commodity: EBOB
-    fields: [CLOSE]
-    unit_change: dollar
+#
+#  -
+#    obj_field: tr_code
+#    obj_content: EBOBNWEMc2
+#    commodity: EBOB
+#    fields: [CLOSE]
+#    unit_change: dollar
 
 
   -

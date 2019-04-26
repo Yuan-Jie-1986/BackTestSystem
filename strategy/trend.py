@@ -19,9 +19,11 @@ class BasisSpread(BacktestSys):
         wgtsDict = {}
         for k in self.data:
             cls = self.data[k]['CLOSE']
-            opn = self.data[k]['OPEN']
             high = self.data[k]['HIGH']
             low = self.data[k]['LOW']
+            vol = self.data[k]['VOLUME']
+            oi = self.data[k]['OI']
+
             wgtsDict[k] = np.zeros(len(self.dt))
 
             p1 = high - low
@@ -35,11 +37,13 @@ class BasisSpread(BacktestSys):
             ma20 = pd.DataFrame(cls).rolling(window=period).mean().values.flatten()
             upper = ma20 + atr
             lower = ma20 - atr
+            volma = pd.DataFrame(vol).rolling(window=period).mean().values.flatten()
+
 
             for i in np.arange(1, len(self.dt)):
-                if wgtsDict[k][i-1] == 0 and cls[i] > upper[i] and cls[i-1] <= upper[i-1]:
+                if wgtsDict[k][i-1] == 0 and cls[i] > upper[i] and cls[i-1] <= upper[i-1] and vol[i] < volma[i]:
                     wgtsDict[k][i] = 1
-                elif wgtsDict[k][i-1] == 0 and cls[i] < lower[i] and cls[i-1] >= lower[i-1]:
+                elif wgtsDict[k][i-1] == 0 and cls[i] < lower[i] and cls[i-1] >= lower[i-1] and vol[i] < volma[i]:
                     wgtsDict[k][i] = -1
                 elif wgtsDict[k][i-1] == 1 and cls[i] < ma20[i] and cls[i-1] >= ma20[i-1]:
                     wgtsDict[k][i] = 0
@@ -66,7 +70,7 @@ class BasisSpread(BacktestSys):
 if __name__ == '__main__':
     a = BasisSpread()
     wgtsDict = a.strategy()
-    wgtsDict = a.wgtsStandardization(wgtsDict)
+    wgtsDict = a.wgtsStandardization(wgtsDict, mode=3)
     wgtsDict = a.wgtsProcess(wgtsDict)
     # for k in wgtsDict:
     #     wgtsDict[k] = 2 * np.array(wgtsDict[k])

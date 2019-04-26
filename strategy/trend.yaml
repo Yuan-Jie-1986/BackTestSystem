@@ -20,79 +20,79 @@ data:
     obj_field: wind_code
     obj_content: TA.CZC
     commodity: TA
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: L.DCE
     commodity: L
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: MA.CZC
     commodity: MA
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: RB.SHF
     commodity: RB
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: J.DCE
     commodity: J
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: JM.DCE
     commodity: JM
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: HC.SHF
     commodity: HC
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: BU.SHF
     commodity: BU
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: ZC.CZC
     commodity: ZC
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: I.DCE
     commodity: I
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: PP.DCE
     commodity: PP
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: V.DCE
     commodity: V
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
   -
     obj_field: wind_code
     obj_content: EG.DCE
     commodity: EG
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
 
 
   #  -
@@ -215,7 +215,7 @@ margin_ratio:
   V.DCE: 0.07
   EG.DCE: 0.07
 
-tcost: 1
+tcost: 0
 
 tcost_list:
   TA.CZC:

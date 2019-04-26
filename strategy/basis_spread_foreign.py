@@ -2,6 +2,7 @@
 
 from lib.simulator.base import BacktestSys
 import numpy as np
+import pandas as pd
 import re
 
 class BasisSpread(BacktestSys):
@@ -20,7 +21,6 @@ class BasisSpread(BacktestSys):
             else:
                 pairs_dict[v].append(k)
 
-        basis_spread = {}
         basis_spread_ratio = {}
         wgtsDict = {}
         patten1 = re.compile('c1\Z')  # 判断是否为近一合约
@@ -33,8 +33,14 @@ class BasisSpread(BacktestSys):
                 elif patten2.search(sub_v):
                     c2_price = self.data[sub_v]['CLOSE']
 
-            basis_spread[k] = c1_price - c2_price
-            basis_spread_ratio[k] = 1 - c2_price / c1_price
+            # basis_spread_ratio[k] = 1 - c2_price / c1_price
+            bs = 1 - c2_price / c1_price
+            # bs = c1_price - c2_price
+            bs_mean = pd.DataFrame(bs).rolling(window=21, min_periods=15).mean().values.flatten()
+            bs_std = pd.DataFrame(bs).rolling(window=21, min_periods=15).std().values.flatten()
+            basis_spread_ratio[k] = (bs - bs_mean) / bs_std
+
+
 
         for i in np.arange(len(self.dt)):
 
@@ -98,10 +104,10 @@ class BasisSpread(BacktestSys):
 if __name__ == '__main__':
     a = BasisSpread()
     wgtsDict = a.strategy()
-    wgtsDict = a.wgtsStandardization(wgtsDict)
+    wgtsDict = a.wgtsStandardization(wgtsDict, type=2)
     wgtsDict = a.wgtsProcess(wgtsDict)
     for k in wgtsDict:
-        wgtsDict[k] = 4 * np.array(wgtsDict[k])
+        wgtsDict[k] = 8 * np.array(wgtsDict[k])
     a.displayResult(wgtsDict, saveLocal=True)
 
 
