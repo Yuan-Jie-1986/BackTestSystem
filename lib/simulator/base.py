@@ -418,45 +418,169 @@ class BacktestSys(object):
 
         return wgtsDict
 
-    def wgtsStandardization(self, wgtsDict):
-        """根据给定的权重重新生成标准化的权重：将所有初始资金全部使用，而不加杠杆。各合约之间的比例根据合约价值的倒数的比例来确定"""
-
-        # for i in np.arange(len(self.dt)):
-        #     for k in wgtsDict:
-        #
-        #
-        #         print self.dt[i], k, self.data[k]['CLOSE'][i]
-
-        # 权重的dataframe
+    def wgtsStandardization(self, wgtsDict, mode=0):
+        """根据给定的持仓重新生成标准化的持仓：
+        mode=0：不加杠杆。所有持仓品种的合约价值相同。每天的持仓情况会根据每日的收盘价而发生变化。这样会产生一些不必要的交易。
+                价格越低，越增加持仓，价格越高，越减少持仓。
+        mode=1: 不加杠杆。所有持仓品种的合约价值相同。如果某个品种的初始持仓没有变化，那就不调整。某个品种持仓有变化，就根据剩余
+                资金按照合约价值来分配持仓。
+        mode=2: 不加杠杆。所有持仓品种按照其波动率进行调整，按照相对的波动来对持仓进行分配。
+        mode=3: 不加杠杆。所有持仓品种按照ATR进行调整，按照ATR来对持仓进行分配。计算ATR时需要最高价最低价
+        """
+        # 合约持仓的dataframe
         wgts_df = pd.DataFrame.from_dict(wgtsDict)
         wgts_df.index = self.dt
-        cls = dict()
+
+        # 计算出各合约做1手的合约价值
+        cls = {}
         for k in wgtsDict:
-            cls[k] = self.data[k]['CLOSE']
+            cls[k] = self.data[k]['CLOSE'] * self.unit[self.category[k]]
             cls[k] = cls[k] * getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE']
         cls_df = pd.DataFrame.from_dict(cls)
         cls_df.index = self.dt
-        for c in cls_df:
-            cls_df[c] *= self.unit[self.category[c]]
-        cls_df = cls_df * np.sign(abs(wgts_df))  # 合约价值与是否持仓相乘
-        cls_df[cls_df == 0] = np.nan
-        value_df = 1e6 / cls_df  # 合约价值的倒数
-        value_min = value_df.min(axis=1, skipna=True)
-        ratio_df = pd.DataFrame()
-        for c in value_df:
-            ratio_df[c] = value_df[c] / value_min
 
-        value_df = cls_df * ratio_df
-        base_series = self.capital / value_df.sum(axis=1, skipna=True)
-        base_series[np.isinf(base_series)] = 0.
-        for c in ratio_df:
-            ratio_df[c] *= base_series
-        ratio_df.fillna(0, inplace=True)
-        ratio_df = ratio_df * np.sign(wgts_df)
-        ratio_df = ratio_df.astype('float')
-        ratio_df = ratio_df.round(decimals=0)  # 如果不取整，有可能回测的时候出现极小的数，约等于0，导致回测出现bug
-        wgtsDict = ratio_df.to_dict(orient='list')
-        return wgtsDict
+        if mode == 0 or mode == 1:
+
+            # 根据持仓得到每日的持有几个合约，针对每个合约平均分配资金
+            wgts_num = np.abs(np.sign(wgts_df))
+            wgts_num = wgts_num.sum(axis=1)
+            wgts_num[wgts_num == 0] = np.nan
+            sub_capital = self.capital / wgts_num
+
+            cls_df = cls_df * np.sign(wgts_df)
+            cls_df[cls_df == 0] = np.nan
+
+            wgts_new = pd.DataFrame()
+            for c in cls_df:
+                wgts_new[c] = sub_capital / cls_df[c]
+
+            wgts_new.fillna(0, inplace=True)
+
+            if mode == 0:
+                wgts_new = wgts_new.round(decimals=0)
+                wgts_new = wgts_new.to_dict(orient='list')
+                return wgts_new
+
+            elif mode == 1:
+                # 判断初始持仓是否与前一天的初始持仓相同
+                wgts_yestd = wgts_df.shift(periods=1)
+                wgts_equal = wgts_df == wgts_yestd
+
+                # 统计当天持仓的合约个数
+                wgts_temp = wgts_df.copy()
+                wgts_temp[wgts_temp == 0] = np.nan
+                wgts_num = wgts_temp.count(axis=1)
+                wgts_num_yestd = wgts_num.shift(periods=1)
+
+                # 统计当天持仓个数是否与前一天持仓个数相同, 如果num_equal是True，那么持仓个数与前一天的相同
+                num_equal = wgts_num == wgts_num_yestd
+                wgts_equal.loc[~num_equal] = False
+                wgts_new[wgts_equal] = np.nan
+                wgts_new.fillna(method='ffill', inplace=True)
+                wgts_new = wgts_new.round(decimals=0)
+                wgts_new = wgts_new.to_dict(orient='list')
+
+                return wgts_new
+
+        elif mode == 2:
+            # 计算各合约过去一年的合约价值的标准差
+            std_df = cls_df.rolling(window=250, min_periods=200).std()
+            # 根据合约价值的标准差的倒数的比例来分配资金
+            ratio_df = self.capital / std_df
+            ratio_df[wgts_df == 0] = np.nan
+            ratio_total = ratio_df.sum(axis=1)
+            sub_capital = pd.DataFrame()
+            for c in ratio_df:
+                sub_capital[c] = ratio_df[c] / ratio_total * self.capital
+
+            # 根据分配资金进行权重的重新生成
+            wgts_new = sub_capital / cls_df * np.sign(wgts_df)
+            wgts_new.fillna(0, inplace=True)
+
+            # 如果初始权重不变，则不对权重进行调整
+            # 判断初始持仓是否与前一天的初始持仓相同
+            wgts_yestd = wgts_df.shift(periods=1)
+            wgts_equal = wgts_df == wgts_yestd
+
+            # 统计当天持仓的合约个数
+            wgts_temp = wgts_df.copy()
+            wgts_temp[wgts_temp == 0] = np.nan
+            wgts_num = wgts_temp.count(axis=1)
+            wgts_num_yestd = wgts_num.shift(periods=1)
+
+            # 统计当天持仓个数是否与前一天持仓个数相同, 如果num_equal是True，那么持仓个数与前一天的相同
+            num_equal = wgts_num == wgts_num_yestd
+            wgts_equal.loc[~num_equal] = False
+            wgts_new[wgts_equal] = np.nan
+            wgts_new.fillna(method='ffill', inplace=True)
+            wgts_new = wgts_new.round(decimals=0)
+            wgts_new = wgts_new.to_dict(orient='list')
+            return wgts_new
+
+        elif mode == 3:
+            # 使用ATR，需要最高价最低价，否则会报错
+            cls_atr = {}
+            high_atr = {}
+            low_atr = {}
+            for k in wgtsDict:
+                cls_atr[k] = self.data[k]['CLOSE'] * self.unit[self.category[k]]
+                cls_atr[k] = cls_atr[k] * getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE']
+                high_atr[k] = self.data[k]['HIGH'] * self.unit[self.category[k]]
+                high_atr[k] = high_atr[k] * getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE']
+                low_atr[k] = self.data[k]['LOW'] * self.unit[self.category[k]]
+                low_atr[k] = low_atr[k] * getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE']
+
+            cls_atr_df = pd.DataFrame.from_dict(cls_atr)
+            cls_atr_df.index = self.dt
+            high_atr_df = pd.DataFrame.from_dict(high_atr)
+            high_atr_df.index = self.dt
+            low_atr_df = pd.DataFrame.from_dict(low_atr)
+            low_atr_df.index = self.dt
+
+            cls_atr_yestd_df = cls_atr_df.shift(periods=1)
+
+            p1 = high_atr_df - low_atr_df
+            p2 = np.abs(high_atr_df - cls_atr_yestd_df)
+            p3 = np.abs(cls_atr_yestd_df - low_atr_df)
+
+            true_range = np.maximum(p1, np.maximum(p2, p3))
+            atr = pd.DataFrame(true_range).rolling(window=250, min_periods=200).mean()
+            # 根据合约价值的ATR的倒数的比例来分配资金
+            ratio_df = self.capital / atr
+            ratio_df[wgts_df == 0] = np.nan
+            ratio_total = ratio_df.sum(axis=1)
+            sub_capital = pd.DataFrame()
+            for c in ratio_df:
+                sub_capital[c] = ratio_df[c] / ratio_total * self.capital
+
+            # 根据分配资金进行权重的重新生成
+            wgts_new = sub_capital / cls_df * np.sign(wgts_df)
+            wgts_new.fillna(0, inplace=True)
+
+            # 如果初始权重不变，则不对权重进行调整
+            # 判断初始持仓是否与前一天的初始持仓相同
+            wgts_yestd = wgts_df.shift(periods=1)
+            wgts_equal = wgts_df == wgts_yestd
+
+            # 统计当天持仓的合约个数
+            wgts_temp = wgts_df.copy()
+            wgts_temp[wgts_temp == 0] = np.nan
+            wgts_num = wgts_temp.count(axis=1)
+            wgts_num_yestd = wgts_num.shift(periods=1)
+
+            # 统计当天持仓个数是否与前一天持仓个数相同, 如果num_equal是True，那么持仓个数与前一天的相同
+            num_equal = wgts_num == wgts_num_yestd
+            wgts_equal.loc[~num_equal] = False
+            wgts_new[wgts_equal] = np.nan
+            wgts_new.fillna(method='ffill', inplace=True)
+            wgts_new = wgts_new.round(decimals=0)
+            wgts_new = wgts_new.to_dict(orient='list')
+            return wgts_new
+
+
+
+
+
 
     def getPnlDaily(self, wgtsDict):
         # 根据权重计算每日的pnl，每日的保证金占用，每日的合约价值
