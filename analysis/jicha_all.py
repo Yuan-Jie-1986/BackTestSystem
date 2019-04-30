@@ -62,7 +62,8 @@ for k in fut_spot_1:
     spot_df.drop(columns=['_id'], inplace=True)
 
     jicha_df = fut_df.join(spot_df, how='outer')
-    jicha_df[k] = 1 - jicha_df[k] / jicha_df[fut_spot_1[k]]
+    jicha_df[k] = jicha_df[fut_spot_1[k]] - jicha_df[k]
+    # jicha_df[k] = 1 - jicha_df[k] / jicha_df[fut_spot_1[k]]
     jicha_df.dropna(inplace=True)
 
     jicha_1 = jicha_1.join(jicha_df[k], how='outer')
@@ -85,7 +86,8 @@ for k in fut_spot_2:
     spot_df.drop(columns=['_id'], inplace=True)
 
     jicha_df = fut_df.join(spot_df, how='outer')
-    jicha_df[k] = 1 - jicha_df[k] / jicha_df[fut_spot_2[k]]
+    jicha_df[k] = jicha_df[fut_spot_2[k]] - jicha_df[k]
+    # jicha_df[k] = 1 - jicha_df[k] / jicha_df[fut_spot_2[k]]
     jicha_df.dropna(inplace=True)
 
     jicha_2 = jicha_2.join(jicha_df[k], how='outer')
@@ -108,11 +110,16 @@ for k in ctr_pairs:
     spot_df.drop(columns=['_id'], inplace=True)
 
     jicha_df = fut_df.join(spot_df, how='outer')
-    jicha_df[k] = 1 - jicha_df[k] / jicha_df[ctr_pairs[k]]
+    jicha_df[k] = jicha_df[ctr_pairs[k]] - jicha_df[k]
+    # jicha_df[k] = 1 - jicha_df[k] / jicha_df[ctr_pairs[k]]
     jicha_df.dropna(inplace=True)
 
     jicha_3 = jicha_3.join(jicha_df[k], how='outer')
     jicha_total = jicha_total.join(jicha_df[k], how='outer')
+
+print jicha_total
+jicha_std = jicha_total.rolling(window=250, min_periods=200).std()
+print jicha_std
 
 
 jicha_1.plot(grid=True)

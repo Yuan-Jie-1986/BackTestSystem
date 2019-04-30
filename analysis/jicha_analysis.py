@@ -40,47 +40,9 @@ fut_spot_3 = {'LCOc1': 'LCOc2',
 jicha_df = pd.DataFrame()
 cls_df = pd.DataFrame()
 
-# for f, s in fut_spot_1.items():
-#
-#     queryArgs = {'wind_code': f, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
-#     projectionField = ['date', 'CLOSE']
-#     res = futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
-#     fut_df = pd.DataFrame.from_records(res, index='date')
-#     fut_df.rename(columns={'CLOSE': f}, inplace=True)
-#     fut_df.drop(columns=['_id'], inplace=True)
-#     cls_df = cls_df.join(fut_df, how='outer')
-#
-#     queryArgs = {'commodity': s, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
-#     projectionField = ['date', 'price']
-#     res = spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
-#     spot_df = pd.DataFrame.from_records(res, index='date')
-#     spot_df.rename(columns={'price': f}, inplace=True)
-#     spot_df.drop(columns='_id', inplace=True)
-#
-#     jicha = spot_df - fut_df
-#     jicha_df = jicha_df.join(jicha, how='outer')
-#
-# for f, s in fut_spot_2.items():
-#     queryArgs = {'wind_code': f, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
-#     projectionField = ['date', 'CLOSE']
-#     res = futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
-#     fut_df = pd.DataFrame.from_records(res, index='date')
-#     fut_df.rename(columns={'CLOSE': f}, inplace=True)
-#     fut_df.drop(columns=['_id'], inplace=True)
-#     cls_df = cls_df.join(fut_df, how='outer')
-#
-#     queryArgs = {'edb_name': s, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
-#     projectionField = ['date', 'CLOSE']
-#     res = spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
-#     spot_df = pd.DataFrame.from_records(res, index='date')
-#     spot_df.rename(columns={'CLOSE': f}, inplace=True)
-#     spot_df.drop(columns='_id', inplace=True)
-#
-#     jicha = spot_df - fut_df
-#     jicha_df = jicha_df.join(jicha, how='outer')
+for f, s in fut_spot_1.items():
 
-for f, s in fut_spot_3.items():
-    queryArgs = {'tr_code': f, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
+    queryArgs = {'wind_code': f, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
     projectionField = ['date', 'CLOSE']
     res = futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
     fut_df = pd.DataFrame.from_records(res, index='date')
@@ -88,15 +50,53 @@ for f, s in fut_spot_3.items():
     fut_df.drop(columns=['_id'], inplace=True)
     cls_df = cls_df.join(fut_df, how='outer')
 
-    queryArgs = {'tr_code': s, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
+    queryArgs = {'commodity': s, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
+    projectionField = ['date', 'price']
+    res = spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+    spot_df = pd.DataFrame.from_records(res, index='date')
+    spot_df.rename(columns={'price': f}, inplace=True)
+    spot_df.drop(columns='_id', inplace=True)
+
+    jicha = spot_df - fut_df
+    jicha_df = jicha_df.join(jicha, how='outer')
+
+for f, s in fut_spot_2.items():
+    queryArgs = {'wind_code': f, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
     projectionField = ['date', 'CLOSE']
     res = futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+    fut_df = pd.DataFrame.from_records(res, index='date')
+    fut_df.rename(columns={'CLOSE': f}, inplace=True)
+    fut_df.drop(columns=['_id'], inplace=True)
+    cls_df = cls_df.join(fut_df, how='outer')
+
+    queryArgs = {'edb_name': s, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
+    projectionField = ['date', 'CLOSE']
+    res = spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
     spot_df = pd.DataFrame.from_records(res, index='date')
     spot_df.rename(columns={'CLOSE': f}, inplace=True)
     spot_df.drop(columns='_id', inplace=True)
 
     jicha = spot_df - fut_df
     jicha_df = jicha_df.join(jicha, how='outer')
+
+# for f, s in fut_spot_3.items():
+#     queryArgs = {'tr_code': f, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
+#     projectionField = ['date', 'CLOSE']
+#     res = futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+#     fut_df = pd.DataFrame.from_records(res, index='date')
+#     fut_df.rename(columns={'CLOSE': f}, inplace=True)
+#     fut_df.drop(columns=['_id'], inplace=True)
+#     cls_df = cls_df.join(fut_df, how='outer')
+#
+#     queryArgs = {'tr_code': s, 'date': {'$gte': datetime(2013, 1, 1), '$lte': datetime(2019, 4, 4)}}
+#     projectionField = ['date', 'CLOSE']
+#     res = futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+#     spot_df = pd.DataFrame.from_records(res, index='date')
+#     spot_df.rename(columns={'CLOSE': f}, inplace=True)
+#     spot_df.drop(columns='_id', inplace=True)
+#
+#     jicha = spot_df - fut_df
+#     jicha_df = jicha_df.join(jicha, how='outer')
 
 
 cls_df = cls_df[jicha_df.columns]
