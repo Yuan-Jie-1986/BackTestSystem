@@ -29,7 +29,7 @@ class FacGenerator(object):
         self.volume = pd.DataFrame()
         self.oi = pd.DataFrame()
 
-        for c in self.cmd_all:
+        for c in self.cmd_list:
             queryArgs = {'wind_code': c, 'date': {'$gte': datetime(2000, 1, 1), '$lte': datetime(2018, 12, 31)}}
             projectionField = ['date', 'CLOSE', 'OPEN', 'HIGH', 'LOW', 'VOLUME', 'OI']
             res = self.futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
@@ -81,7 +81,7 @@ class FacGenerator(object):
     # 线性衰减权重加权的均值
     def decay_linear(self, df, period, **kwargs):
         def weighted_ma(x):
-            w = np.arange(1, period + 1)
+            w = np.arange(1, len(x) + 1)
             return np.nansum(x * w) / np.sum(w[~np.isnan(x)])
         return df.rolling(window=period, **kwargs).apply(func=weighted_ma, raw=True)
 

@@ -47,6 +47,10 @@ class FactorAnalysis(object):
 
         return res
 
+    def effective_num(self):
+        return pd.DataFrame(self.fac_cls.count(axis=1), columns=['number'])
+
+
 
 
 
@@ -56,7 +60,8 @@ if __name__ == '__main__':
     b = pd.DataFrame(np.random.randn(10, 5))
     b.iloc[3,2] = np.nan
     c = FactorAnalysis(a, b)
-    c.fac_rtn(fac_num=3, rtn_len=3)
+    # c.fac_rtn(fac_num=3, rtn_len=3)
+    c.effective_num()
 
 
 
