@@ -12,6 +12,7 @@ backtest_mode: CLOSE  # 回测方式，CLOSE为以当天收盘价交易, OPEN为
 
 switch_contract: 0
 date_type: NYMEX
+turnover: 1
 
 data:
 

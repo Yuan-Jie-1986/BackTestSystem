@@ -104,7 +104,7 @@ class BasisSpread(BacktestSys):
 if __name__ == '__main__':
     a = BasisSpread()
     wgtsDict = a.strategy()
-    wgtsDict = a.wgtsStandardization(wgtsDict, type=2)
+    wgtsDict = a.wgtsStandardization(wgtsDict, mode=1)
     wgtsDict = a.wgtsProcess(wgtsDict)
     for k in wgtsDict:
         wgtsDict[k] = 8 * np.array(wgtsDict[k])
