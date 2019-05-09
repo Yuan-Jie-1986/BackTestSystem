@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 
+
 class FactorAnalysis(object):
     def __init__(self, fac, cls):
         # fac和cls是dataframe的形式，index是日期
@@ -30,16 +31,34 @@ class FactorAnalysis(object):
         ic['RankIR'] = ic_mean / ic_std
         return ic
 
-    def fac_rtn(self, fac_num=3, rtn_len=20, ir_len=60):
+    def fac_rtn(self, fac_num=2, rtn_len=20, ir_len=60):
+        # 如果有效数据不足，计算得到nan值
         rtn = self.fac_cls.pct_change(periods=rtn_len, fill_method='ffill')
         rtn = rtn.shift(periods=-rtn_len)
-        fac_rank = self.factor.rank(axis=1, na_option='keep')
-        fac_len = len(self.factor.columns)
+
+        # 如果有效数据小于2倍的fac_num，则将rtn赋为nan
+        fac_rank_nan_num = self.factor.count(axis=1)
+        fac_rank_nan_flag = fac_rank_nan_num < 2 * fac_num
+        rtn[fac_rank_nan_flag] = np.nan
+
+        high_flag = pd.DataFrame()
+        fac_rank_4_high = self.factor.rank(axis=1, method='max', na_option='keep')
+        for c in fac_rank_4_high:
+            high_flag[c] = fac_rank_4_high[c] <= fac_rank_nan_num - fac_num
+
+        low_flag = pd.DataFrame()
+        fac_rank_4_low = self.factor.rank(axis=1, method='min', na_option='keep')
+        for c in fac_rank_4_low:
+            low_flag[c] = fac_rank_4_low[c] > fac_num
+
         rtn_high = rtn.copy()
-        rtn_high[fac_rank <= fac_len - fac_num] = np.nan
+        rtn_high[high_flag] = np.nan
+
         rtn_low = rtn.copy()
-        rtn_low[fac_rank > fac_num] = np.nan
+        rtn_low[low_flag] = np.nan
+
         res = rtn_high.mean(axis=1) - rtn_low.mean(axis=1)
+
         res = pd.DataFrame({'FacRtn': res})
         res_mean = res.rolling(window=ir_len).mean()
         res_std = res.rolling(window=ir_len).std()
@@ -56,12 +75,16 @@ class FactorAnalysis(object):
 
 
 if __name__ == '__main__':
-    a = pd.DataFrame(np.random.randn(10, 5))
-    b = pd.DataFrame(np.random.randn(10, 5))
-    b.iloc[3,2] = np.nan
-    c = FactorAnalysis(a, b)
-    # c.fac_rtn(fac_num=3, rtn_len=3)
-    c.effective_num()
+    a = pd.DataFrame(np.random.randn(20, 10))
+    b = pd.DataFrame(np.random.randn(20, 10))
+    a.iloc[:, 5:9] = np.nan
+    # b.iloc[:, 2:9] = np.nan
+    print a, b
+    d = FactorAnalysis(a, b)
+    print d.fac_rtn(fac_num=3, rtn_len=3)
+    print d.fac_rtn(fac_num=2, rtn_len=3)
+    print d.fac_rtn(fac_num=4, rtn_len=3)
+    # print d.effective_num()
 
 
 
