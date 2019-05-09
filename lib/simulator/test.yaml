@@ -11,9 +11,10 @@ end_date: '20181231'
 capital: 1e6
 backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易
 
-date_type: NYMEX
+date_type: SHSE # 目前可以选择的是SHSE/NYMEX
 
-switch_contract: 0
+switch_contract: 1
+turnover: 20  # 持仓天数，通常是针对横截面的策略，对于CTA策略不太适用
 
 data:
   -

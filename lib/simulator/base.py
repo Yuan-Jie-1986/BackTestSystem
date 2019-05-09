@@ -293,6 +293,7 @@ class BacktestSys(object):
         self.category = {}
         self.tcost = conf['tcost']
         self.switch_contract = conf['switch_contract']
+        self.turnover = conf['turnover']
         self.exchange_dict = {}
 
         if self.tcost:
@@ -378,9 +379,6 @@ class BacktestSys(object):
 
             getattr(self, self.exchange_dict[k])['CLOSE'] = close_new
 
-
-
-
         if 'rmb' in self.unit_change.values():
             self.rmb = {'CLOSE': np.ones(len(self.dt))}
             self.exchange_dict['rmb'] = 'rmb'
@@ -394,7 +392,6 @@ class BacktestSys(object):
         #     except KeyError:
         #         continue
 
-
     def strategy(self):
         raise NotImplementedError
 
@@ -406,6 +403,36 @@ class BacktestSys(object):
                 res = np.zeros(len(wgtsDict[k]) + 1)
                 res[1:] = wgtsDict[k]
                 wgtsDict[k] = res
+
+        # 如果在配置文件中的持仓周期大于1，需要对持仓进行调整。通常该参数是针对alpha策略。
+        if self.turnover > 1:
+            print u'根据turnover对持仓进行调整，请检查是否为alpha策略'
+            wgts_df = pd.DataFrame.from_dict(wgtsDict)
+            wgts_value = wgts_df.values
+            wgts_index = wgts_df.index
+            wgts_columns = wgts_df.columns
+
+            count = 0
+            for i in range(1, len(self.dt)):
+
+                if count == 0 and (wgts_value[i] == 0).all():
+                    continue
+                elif count == 0 and (wgts_value[i] != 0).any():
+                    count = 1
+                elif count != 0 and count != self.turnover:
+                    wgts_value[i] = wgts_value[i-1]
+                    count += 1
+                elif count == self.turnover and (wgts_value[i] == 0).all():
+                    count = 0
+                elif count == self.turnover and (wgts_value[i] != 0).any():
+                    count = 1
+                else:
+                    raise Exception(u'持仓调整出现错误，请检查')
+
+            wgts_df = pd.DataFrame(wgts_value, index=wgts_index, columns=wgts_columns)
+
+            wgtsDict = wgts_df.to_dict(orient='list')
+
         # 如果当天合约没有交易量，那么需要对权重进行调整
         for k in wgtsDict:
             for i in range(1, len(self.dt)):
@@ -576,11 +603,6 @@ class BacktestSys(object):
             wgts_new = wgts_new.round(decimals=0)
             wgts_new = wgts_new.to_dict(orient='list')
             return wgts_new
-
-
-
-
-
 
     def getPnlDaily(self, wgtsDict):
         # 根据权重计算每日的pnl，每日的保证金占用，每日的合约价值
@@ -1098,7 +1120,7 @@ class BacktestSys(object):
 
             total_pnl_k = np.nansum([tr.pnl for tr in trade_record[k]])
             total_pnl += total_pnl_k
-            print 'sadfa', total_pnl
+            # print 'sadfa', total_pnl
 
         return trade_record
 
